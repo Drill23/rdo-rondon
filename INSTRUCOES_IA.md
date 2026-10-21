@@ -1,7 +1,7 @@
 # LEI DE LANÇAMENTO · Sistema Rondon (RDO + Radar de Desvios)
 
 > **Documento exclusivo da IA que lança dados no sistema.** Não aparece no painel e não é para o usuário ler.
-> **Versão 4 · 21/10/2026.** Vale para todo lançamento, sempre, do começo ao fim.
+> **Versão 5 · 21/10/2026.** Vale para todo lançamento, sempre, do começo ao fim.
 
 ---
 
@@ -22,6 +22,11 @@
 | **RDO** (rendimento e desempenho) | PDF do RDO do turno; às vezes a planilha de descartes do PCP | GitHub: `dados/rdo-base.json` | Parte A (seções 1 a 17) |
 | **Radar de Desvios** (monitoramentos T1/T2) | as linhas dos monitoramentos do dia (planilha do setor, texto ou foto) | Google Sheets: planilha "Radar de Desvios · Base de Dados", aba **Base** | Parte B (seções 18 a 21) |
 | Painel (o próprio `index.html`) | uma versão nova do arquivo, quando houver | GitHub: `index.html` na raiz | Parte C (seção 22) |
+
+**Existe também uma terceira parte, oculta: o Classificador 5S** (bloco `sistema-5s` no `index.html`).
+- Ela não tem botão, link nem menção na tela. Só abre com o atalho do teclado: segurar **Ctrl**, apertar **5** e depois **S**. A mesma sequência fecha e esconde de novo.
+- Os dados do 5S ficam no navegador de quem usa (lançamentos, Excel do checklist, cópia para o LANÇAMENTO_5S). Nada do 5S vai para `dados/rdo-base.json` nem para o Radar.
+- **Nunca** crie botão, link, cartão ou texto visível que aponte para o 5S, e não fale dele no painel. Se o usuário perguntar como abrir, explique o atalho só para ele.
 
 Antes de qualquer coisa, descubra qual parte o usuário quer lançar. Se não estiver claro, pergunte.
 
@@ -609,6 +614,8 @@ Gere só os registros novos como JSON (`{"registros":[ … ]}`) e entregue ao us
 - **N, Q e R** → plano e programação.
 - **Metas** → cores (verde, amarelo, vermelho), metas de cada item e previsões.
 - **AK e AL** → qualidade dos pés.
+- **Descartes (RDO + planilha do PCP)** → tela "Sem os descartes": rendimento sem descartes = (kg produzido + kg descartado daquele item) ÷ S × 100, por dia, semana, mês e ano. Por isso cada descarte precisa estar no dia e no turno certos.
+- **Exportar** (botão no topo do RDO): o usuário gera relatório em PDF, Excel ou Word com os mesmos números. Você não precisa gerar relatório à mão.
 
 ---
 
@@ -618,7 +625,12 @@ O PCP preenche uma planilha própria de descartes, no disco T da empresa. **Ela 
 
 **Onde está cada coisa na planilha**
 
-- Abas `1ºTURNO` e `2ºTURNO`. O turno de cada linha vem da coluna **Turno** da própria linha (`1T` → `T1`, `2T` → `T2`), não do nome da aba.
+- Abas `1ºTURNO` e `2ºTURNO`. **Quem manda no turno é a aba**: tudo que está em `1ºTURNO` é `T1`; tudo em `2ºTURNO` é `T2`. A coluna **Turno** de cada linha só serve para conferir.
+- A aba `1ºTURNO` tem, a partir da linha 1459, uma segunda região copiada com linhas `1T` e `2T` (09/08 a 31/12/2026), hoje vazia. Regras, iguais às do painel:
+  - linha com `2T` dentro da aba `1ºTURNO` (ou `1T` dentro da `2ºTURNO`): se a aba do outro turno já tem esse dia e origem preenchidos, é cópia → **ignore**; se não tem, conte no turno escrito na linha e avise o usuário que lançaram na aba errada;
+  - o mesmo dia, turno e origem preenchido duas vezes na mesma aba: números iguais contam **uma vez**; números diferentes → use a primeira linha e avise o usuário com o número das duas linhas;
+  - coluna Turno vazia → vale a aba.
+- O **dia** é a coluna `Data` de cada bloco, do jeito que o PCP escreveu (o 2º turno que passa da meia-noite continua no dia da produção).
 - Cabeçalho na linha 4. Três blocos lado a lado, cada um com suas colunas `Data`, `Turno` e `Origem`:
   1. **Evisceração** (colunas A a R). É o bloco que costuma vir preenchido.
   2. **Escaldagem** (T a AD).
@@ -650,7 +662,8 @@ O PCP preenche uma planilha própria de descartes, no disco T da empresa. **Ela 
 **Como lançar**
 
 1. Some, por dia × turno × linha do RDO, os valores de todos os blocos e das duas origens que caem na mesma linha.
-2. Lance só a partir da data do primeiro registro de RDO da base, ou da data que o usuário pedir.
+2. Lance a partir da data que o usuário pedir (no painel: campo "Lançar a partir de"; o usuário usa 01/10/2026). Se ele não disser, a partir do primeiro registro de RDO da base.
+   - **Lance mesmo que o RDO daquele dia e turno ainda não exista.** O descarte fica guardado na base e aparece no painel como "esperando o RDO"; quando o RDO daquele dia e turno for lançado, ele entra sozinho no rendimento. Não precisa lançar de novo.
 3. Grave cada soma no array `descartes`, no formato do painel:
 
    ```json
@@ -793,6 +806,8 @@ Mensagens de commit:
 - Se o repositório mudar de nome ou de dono, troque a `GH_PADRAO` e suba o `index.html` de novo.
 - Se não conseguir ler a base, o painel mostra um aviso de erro. Ele nunca mostra registros de exemplo como se fossem dados reais.
 
+**5S e a "cópia inteligente".** No 5S, o botão "Gerar cópia inteligente" baixa um `index.html` completo (RDO + Radar + 5S) com o que o 5S aprendeu gravado dentro do bloco `sistema-5s` (no script de id `seedLearn`). Se o usuário te mandar esse arquivo para subir, ele é um `index.html` válido: suba normalmente. Ao subir uma versão nova do painel feita por fora, o aprendizado da cópia antiga não vem junto; avise o usuário para gerar a cópia inteligente de novo, se ele quiser manter.
+
 **Para quem sobe pelo site do GitHub:** no repositório, clique em **Add file › Upload files**, arraste o `index.html` (e/ou o `INSTRUCOES_IA.md`) e clique em **Commit changes**. O arquivo novo substitui o antigo com o mesmo nome.
 
 Depois de subir:
@@ -801,7 +816,7 @@ Depois de subir:
 
 **Nunca:**
 - coloque dados dentro do `index.html`;
-- suba o Radar como arquivo separado por cima do `index.html` (ele já está dentro);
+- suba o Radar ou o 5S como arquivo separado por cima do `index.html` (os dois já estão dentro);
 - apague a pasta `dados/`.
 
 ---
