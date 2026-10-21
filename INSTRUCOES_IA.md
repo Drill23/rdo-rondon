@@ -1,7 +1,7 @@
-# LEI DE LANÇAMENTO DO RDO · RDO Rondon
+# LEI DE LANÇAMENTO · Sistema Rondon (RDO + Radar de Desvios)
 
-> **Documento exclusivo da IA que lança o RDO.** Não aparece no painel e não é para o usuário ler.
-> **Versão 2 · 21/10/2026.** Vale para todo lançamento, sempre, do começo ao fim.
+> **Documento exclusivo da IA que lança dados no sistema.** Não aparece no painel e não é para o usuário ler.
+> **Versão 4 · 21/10/2026.** Vale para todo lançamento, sempre, do começo ao fim.
 
 ---
 
@@ -15,9 +15,21 @@
 2. dentro do `index.html`, no bloco `script` de id `lei-lancamento-ia` (o navegador não mostra esse bloco);
 3. a base `dados/rdo-base.json` tem a chave `LEI_IA` apontando para cá.
 
+**O sistema tem duas partes, no mesmo `index.html`.** Ao abrir, aparecem dois botões grandes: **RDO** e **Radar de Desvios**. Cada parte tem a sua própria base, e você nunca mistura uma com a outra.
+
+| Parte | O que o usuário te manda | Para onde vai | Onde está nesta LEI |
+|---|---|---|---|
+| **RDO** (rendimento e desempenho) | PDF do RDO do turno; às vezes a planilha de descartes do PCP | GitHub: `dados/rdo-base.json` | Parte A (seções 1 a 17) |
+| **Radar de Desvios** (monitoramentos T1/T2) | as linhas dos monitoramentos do dia (planilha do setor, texto ou foto) | Google Sheets: planilha "Radar de Desvios · Base de Dados", aba **Base** | Parte B (seções 18 a 21) |
+| Painel (o próprio `index.html`) | uma versão nova do arquivo, quando houver | GitHub: `index.html` na raiz | Parte C (seção 22) |
+
+Antes de qualquer coisa, descubra qual parte o usuário quer lançar. Se não estiver claro, pergunte.
+
 **Princípio de ouro: você é transcritor, não analista.** Copie exatamente o que o PDF mostra, célula por célula. O painel faz todas as contas: rendimento, kg, caixas, impacto dos descartes, previsões, OEE. Um número inventado, arredondado ou "corrigido" estraga a análise de todo mundo sem ninguém perceber. Na dúvida entre copiar e deduzir, copie. Na dúvida sobre o que o PDF diz, pergunte ao usuário.
 
 ---
+
+# PARTE A · RDO (rendimento)
 
 ## 1. Roteiro obrigatório (12 passos)
 
@@ -600,6 +612,194 @@ Gere só os registros novos como JSON (`{"registros":[ … ]}`) e entregue ao us
 
 ---
 
+## 17. Planilha de descartes do PCP (DESCARTE_RONDON_NOVA.xlsx)
+
+O PCP preenche uma planilha própria de descartes, no disco T da empresa. **Ela é deles: nunca altere, renomeie ou salve por cima dela.** Normalmente o próprio painel lê essa planilha sozinho (Lançar › Planilha de descartes do PCP) e grava os descartes na base. Se o usuário te mandar o arquivo e pedir o lançamento, faça exatamente o que o painel faz:
+
+**Onde está cada coisa na planilha**
+
+- Abas `1ºTURNO` e `2ºTURNO`. O turno de cada linha vem da coluna **Turno** da própria linha (`1T` → `T1`, `2T` → `T2`), não do nome da aba.
+- Cabeçalho na linha 4. Três blocos lado a lado, cada um com suas colunas `Data`, `Turno` e `Origem`:
+  1. **Evisceração** (colunas A a R). É o bloco que costuma vir preenchido.
+  2. **Escaldagem** (T a AD).
+  3. **Pós-chiller** (AF a AO).
+- Cada dia tem duas linhas por turno: `ÁREA DIF` e `PCC 1B`.
+- A coluna `Total` é ignorada. Células vazias ou com 0 são ignoradas.
+- A data vem como data do Excel; converta para `AAAA-MM-DD`.
+
+**De-para (coluna → linha do RDO)**
+
+| Coluna da planilha | Linha se ÁREA DIF | Linha se PCC 1B |
+|---|---|---|
+| Asa (kg) | 2.1 | 3.2 |
+| Filé (kg) | 2.2 | 3.3 |
+| Dorso (kg) | 2.3 | 3.4 |
+| Coxa (kg) | 2.4 | 3.5 |
+| Artrite (kg) | 3.6 | 3.6 |
+| Papo cheio (kg) | 2.5 | 3.7 |
+| Aspecto repugnante (kg) | 3.8 | 3.8 |
+| Pés/Pata (kg) | 2.6 | 3.9 |
+| Coração · Moela · Fígado (kg) | 1.13 · 1.14 · 1.15 | 1.13 · 1.14 · 1.15 |
+| Escaldagem excessiva (cab.) | 1.1 | 1.1 |
+| Descartes linha DIF (cab.) | 2.8 | 2.8 |
+| Carcaça não eviscerada (cab.) | 1.3 | 1.3 |
+| Má sangria (cab.) · Queda escaldagem (cab.) | 1.2 · 1.4 | 1.2 · 1.4 |
+| Pré-inspeção SIF (cab.) | 2.7 | 2.7 |
+| Pé inteiro · Pés escaldagem excessiva · Pés com calo · Pés queda (kg) | 1.9 · 1.10 · 1.11 · 1.12 | 1.9 · 1.10 · 1.11 · 1.12 |
+
+**Como lançar**
+
+1. Some, por dia × turno × linha do RDO, os valores de todos os blocos e das duas origens que caem na mesma linha.
+2. Lance só a partir da data do primeiro registro de RDO da base, ou da data que o usuário pedir.
+3. Grave cada soma no array `descartes`, no formato do painel:
+
+   ```json
+   {"id":"nq-2026-10-19-T1-3.4","data":"2026-10-19","turno":"T1","linha":"3.4","alvo":"DORSO","un":"kg","qtd":2090.624,"causa":"Dorso (PCC)","obs":"da planilha: Dorso (Kg´s) · PCC 1B","lancadoPor":"planilha de descartes (PCP)","lancadoEm":"2026-10-21T15:30:00-03:00"}
+   ```
+
+   - `alvo` e `causa` saem da tabela 6.4.
+   - Linha em cabeças: `"un":"carcacas"` e `"alvo":"carcaca"`.
+4. Mesmo `id` já na base: substitua, porque a planilha é a fonte. Não mexa nos outros descartes.
+5. **Não copie nada da planilha para `naoQualidade`.** `naoQualidade` é só o que veio no PDF do RDO. Quando o PDF trouxer a mesma linha, o painel usa o número do RDO e ignora o da planilha, para não contar duas vezes.
+
+---
+
+# PARTE B · RADAR DE DESVIOS (monitoramentos T1/T2)
+
+## 18. Onde o Radar guarda os dados
+
+| Item | Valor |
+|---|---|
+| Planilha | Google Sheets "Radar de Desvios · Base de Dados" |
+| ID da planilha | `15PHS_upLTLAnbLcOb8i0mDYA-6FJXpqb1CwjDhQeu2M` |
+| Aba | **Base** (é a única que o painel lê) |
+| Como o painel lê | conector Apps Script (link `/exec`, já gravado no painel). A cada 3 minutos o painel confere se entrou linha nova. |
+| GitHub | **nada do Radar vai para o GitHub.** Os dados ficam só na planilha. |
+
+O painel do Radar não guarda dados: tudo o que ele mostra sai da aba Base. Linha errada na aba Base vira análise errada na tela.
+
+Vocabulário obrigatório:
+- O que o monitor aponta numa avaliação é **desvio**, nunca "defeito".
+- Na evisceradora, fale sempre em **ineficiência**, nunca em eficiência.
+- O Radar não fala de rendimento, peso médio nem indicadores industriais: isso é do RDO.
+
+## 19. Formato da aba Base (20 colunas, de A a T)
+
+A primeira linha é o cabeçalho, e a ordem das colunas é fixa. Cada linha é **uma avaliação** de um item, num dia e turno.
+
+| Col. | Cabeçalho | O que vai | Formato | Obrigatório |
+|---|---|---|---|---|
+| A | ANO | ano da data | `2026` | sim |
+| B | MÊS | mês da data | `out/26` ou `10` (o que a base já usa) | sim |
+| C | DATA | dia da avaliação | `dd/mm/aaaa` (21/10/2026) | **sim** |
+| D | TURNO | turno | `1` ou `2` (ou "1º TURNO"; o painel pega o número) | **sim** |
+| E | CÓDIGO | código do produto | texto, como veio | se houver |
+| F | PRODUTO | nome do produto | texto | se houver |
+| G | LINHA DE PRODUÇÃO | linha | texto | se houver |
+| H | CÓDIGO IC | código do item de controle | texto | se houver |
+| I | ITEM DE CONTROLE | ex.: "Padrão de qualidade do peito" | texto | **sim** |
+| J | AMOSTRAGEM | peças avaliadas | inteiro maior que 0 | **sim** |
+| K | NÃO CONFORMIDADE | peças com desvio | inteiro de 0 até a amostragem | **sim** |
+| L | % DE ANOMALIA | % da linha | como veio (o painel recalcula) | não |
+| M | TOLERÂNCIA | tolerância do item | `10%` ou `0,1` | se houver |
+| N | LIMITE INFERIOR | | como veio | não |
+| O | LIMITE SUPERIOR | | como veio | não |
+| P | PARÂMETROS | o desvio avaliado (ex.: "Hematoma no peito") | texto | **sim** |
+| Q | SETOR | PLATAFORMA, ESCALDAGEM, EVISCERAÇÃO, MIÚDOS, CORTES 1, CORTES 2, EMBALAGEM SECUNDÁRIA, PALETIZAÇÃO | texto | **sim** |
+| R | SUPERVISOR | | texto | se houver |
+| S | TIPO | | texto | se houver |
+| T | COLAGEM | data e hora do lançamento | `dd/mm/aaaa hh:mm` | **sim** |
+
+Regras de preenchimento:
+- **Copie os textos exatamente como vieram** (setor, item de controle, parâmetro). O painel agrupa os itens por esses textos; uma letra diferente vira um item novo.
+- Números sem separador de milhar; decimal com vírgula.
+- A **% não é digitada por você**: o painel calcula soma das NC ÷ soma das amostras de cada item, com 1 casa, e o corte é 10,0%.
+- **COLAGEM:** todas as linhas de um mesmo lançamento levam o mesmo valor, com a data e a hora em que você colou.
+  - Para cada dia e turno, o painel usa só a **colagem mais nova**. As anteriores daquele dia e turno são ignoradas (é assim que se corrige um turno).
+  - COLAGEM vazia é tratada como base histórica, a mais antiga.
+
+## 20. Roteiro de lançamento do Radar
+
+1. **Identifique o dia e o turno** do que o usuário mandou.
+   - O T1 entra no próprio dia.
+   - O T2 é digitado na manhã seguinte, até as 9h.
+   - Na dúvida, pergunte.
+2. **Pegue todas as avaliações daquele dia e turno**, uma linha por avaliação. Não some nem resuma linhas: a soma é o painel que faz.
+3. **Monte as linhas nas 20 colunas** da seção 19, com o mesmo valor de COLAGEM em todas.
+4. **Confira antes de gravar:**
+   - data e turno válidos, iguais em todas as linhas;
+   - AMOSTRAGEM maior que 0 em todas;
+   - NÃO CONFORMIDADE nunca maior que a AMOSTRAGEM;
+   - PARÂMETROS, SETOR e ITEM DE CONTROLE preenchidos;
+   - nenhuma linha copiada duas vezes por engano (o painel acusa "turno colado em dobro");
+   - quantidade de linhas parecida com a dos turnos anteriores (bem menos linhas = lançamento incompleto, que faz o turno parecer melhor do que é);
+   - os textos de setor, item e parâmetro já existem na aba Base (se aparecer um texto novo, confira se não é erro de digitação).
+5. **Grave no fim da aba Base,** sem apagar nem editar nenhuma linha antiga. Pela API do Google Sheets:
+   - `spreadsheets.values.append` com `range: "Base!A:T"`;
+   - `valueInputOption: "USER_ENTERED"`;
+   - `insertDataOption: "INSERT_ROWS"`.
+6. **Para corrigir um turno já lançado:** lance o turno inteiro de novo, com COLAGEM mais nova. Não edite as linhas velhas: o painel passa a usar a colagem nova sozinho.
+7. **Se você não tiver acesso à planilha:** entregue ao usuário as linhas separadas por TAB, com o cabeçalho. Ele cola na primeira linha vazia da aba Base. Para conferir o que já entrou, o menu da planilha **Radar de Desvios › Conferir últimos lançamentos** mostra os últimos blocos.
+8. **Responda ao usuário:**
+
+```
+✅ Radar lançado: qua 21/10 · T1
+• 214 avaliações gravadas na aba Base (colagem 21/10/2026 15:40)
+• Conferências: ok (nenhuma NC maior que a amostra, nenhuma linha repetida)
+• O painel atualiza sozinho em até 3 minutos
+```
+
+## 21. Proibições do Radar
+
+1. Apagar, editar ou reordenar linhas antigas da aba Base.
+2. Lançar sem COLAGEM, ou com valores de COLAGEM diferentes dentro do mesmo lançamento.
+3. Calcular e lançar porcentagens no lugar das contagens.
+4. Lançar o mesmo turno duas vezes na mesma colagem.
+5. Mudar os nomes das colunas ou a ordem do cabeçalho.
+6. Criar outra aba e esperar que o painel leia: ele só lê a aba Base.
+7. Mandar dados do Radar para o GitHub, ou dados do RDO para a planilha do Radar.
+8. Usar a palavra "defeito" ou falar de "eficiência" da evisceradora.
+
+# PARTE C · SUBIR PARA O GITHUB
+
+## 22. O que vai para o GitHub e como subir
+
+No repositório do sistema ficam só duas coisas que importam:
+
+| Arquivo | O que é | Quem mexe |
+|---|---|---|
+| `index.html` (raiz) | o sistema inteiro: tela inicial, RDO e Radar num arquivo só | você, só quando o usuário mandar uma versão nova |
+| `dados/rdo-base.json` | a base do RDO | você (seção 10) e o próprio painel |
+| `INSTRUCOES_IA.md` (raiz) | esta LEI | você, só quando o usuário mandar uma versão nova |
+
+**Subir pela API do GitHub** (o mesmo jeito para qualquer arquivo):
+
+1. `GET /repos/{dono}/{repo}/contents/{caminho}?ref=main` → guarde o `sha` (se o arquivo ainda não existir, não há sha).
+2. `PUT /repos/{dono}/{repo}/contents/{caminho}` com:
+   - `message`: a mensagem do commit;
+   - `content`: o arquivo em base64 (UTF-8);
+   - `branch`: `"main"`;
+   - `sha`: o sha do passo 1, quando houver.
+3. Resposta 409 ou 422 (o arquivo mudou no meio do caminho): repita do passo 1. Nunca force.
+
+Mensagens de commit:
+- Base do RDO: `RDO dd/mm Tn (IA): k lançamento(s): dd/mm, dd/mm`.
+- Painel: `Painel: nova versão (o que mudou em poucas palavras)`.
+- LEI: `LEI de lançamento: versão N`.
+
+**Para quem sobe pelo site do GitHub:** no repositório, clique em **Add file › Upload files**, arraste o `index.html` (e/ou o `INSTRUCOES_IA.md`) e clique em **Commit changes**. O arquivo novo substitui o antigo com o mesmo nome.
+
+Depois de subir:
+- O GitHub Pages publica em 1 a 2 minutos. O link do painel não muda.
+- Conferir: abra o link; a tela inicial com os dois botões tem que aparecer.
+
+**Nunca:**
+- coloque dados dentro do `index.html`;
+- suba o Radar como arquivo separado por cima do `index.html` (ele já está dentro);
+- apague a pasta `dados/`.
+
+---
+
 ## Anexo A · Leitor de referência (Python)
 
 Faz o mesmo que o leitor embutido no painel: acha turno, semana e datas; lê a página 1 e a página 2 por coluna; monta os registros dos dias com produção; roda as 16 conferências; lista as linhas de descarte em branco. Testado contra os registros reais de 19 e 20/10/2026: resultado idêntico, 16/16 conferências.
@@ -882,4 +1082,4 @@ if __name__ == '__main__':
 
 ---
 
-*Fim da LEI. Versão 2 · 21/10/2026. Histórico: v1 era o INSTRUCOES_IA.md original; v2 acrescenta o mapa do PDF, as regras de células vazias, os descartes lançados no painel, as 16 conferências e o leitor de referência.*
+*Fim da LEI. Versão 4 · 21/10/2026. Histórico: v1 era o INSTRUCOES_IA.md original; v2 acrescentou o mapa do PDF, as regras de células vazias, os descartes lançados no painel, as 16 conferências e o leitor de referência; v3 acrescentou a planilha de descartes do PCP (seção 17); v4 juntou RDO e Radar de Desvios no mesmo sistema (Partes B e C).*
