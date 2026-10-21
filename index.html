@@ -2828,10 +2828,12 @@ let CFG = carregarCfg();
 function salvarCfg() { store.set('cfg', CFG); invalidar(); }
 
 function ghAuto() {
-  const h = location.hostname || '';
+  let loc = location;
+  if (!loc.hostname && document.referrer) { try { loc = new URL(document.referrer); } catch (e) { } }
+  const h = loc.hostname || '';
   if (/\.github\.io$/i.test(h)) {
     const owner = h.split('.')[0];
-    const seg = location.pathname.split('/').filter(Boolean)[0];
+    const seg = loc.pathname.split('/').filter(Boolean)[0];
     const repo = seg && !/\.html?$/i.test(seg) ? seg : `${owner}.github.io`;
     return { owner, repo, pages: true };
   }
