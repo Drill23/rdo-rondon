@@ -1287,6 +1287,23 @@ body.com-foco .view, body.com-foco .topo, body.com-foco .filtros, body.com-foco 
   .hb.hb-larga .hb-r { grid-template-columns: minmax(78px, 110px) 1fr 120px; }
 }
 
+/* ---------- planilha de descartes do PCP ---------- */
+.plan { margin-top: 22px; }
+.plan-h { display: flex; gap: 14px; align-items: flex-start; }
+.plan-h .fc-ic { width: 46px; height: 46px; border-radius: 11px; border: var(--bw-s) solid var(--line); background: var(--accent-soft); display: grid; place-items: center; flex: none; box-shadow: var(--sh-1); }
+.plan-h .fc-ic svg { width: 22px; height: 22px; stroke: var(--ink); fill: none; stroke-width: 2; }
+.plan-h > div > b { display: block; font-size: 16px; font-weight: 900; }
+.plan-h > div > span { display: block; font-size: 13px; color: var(--ink-2); margin-top: 3px; line-height: 1.5; }
+.pl-st { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; margin-top: 14px; padding: 10px 12px; border: 2px dashed var(--line-mid); border-radius: 10px; font-size: 13px; color: var(--ink-2); }
+.pl-st b { color: var(--ink); }
+.plan-acoes { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: flex-end; margin-top: 14px; }
+.plan-desde { display: grid; gap: 4px; margin-left: auto; }
+.plan-desde span { font-family: var(--f-mono); font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); }
+.plan-desde .inp { height: 40px; width: 170px; }
+.plan-f { display: flex; width: 100%; margin-top: 10px; border: 0; background: none; color: inherit; text-align: left; cursor: pointer; padding: 0; font: inherit; }
+.plan-f:hover small { text-decoration: underline; }
+@media (max-width: 640px) { .plan-desde { margin-left: 0; width: 100%; } .plan-desde .inp { width: 100%; } }
+
 </style>
 </head>
 <body>
@@ -4163,6 +4180,7 @@ function vLancar() {
     ${pane('Ler o PDF do RDO', 'Arraste aqui o PDF do turno (o mesmo que chega todo dia). O sistema lê todas as linhas sozinho e confere as contas antes de salvar.', `<label class="drop" id="drop">${ic('doc')}<h3>Solte o PDF aqui</h3><p>ou toque para escolher · aceita vários de uma vez (1º e 2º turno)</p><input type="file" accept="application/pdf,.pdf" multiple data-act="pdf"></label><p class="p-sm muted" style="margin-top:10px">O PDF é lido no próprio aparelho; nada é enviado a lugar nenhum até você tocar em Publicar.</p>`)}
     ${pane('Colar o que a IA gerou', 'Se a sua IA devolveu o lançamento em JSON (formato explicado no arquivo INSTRUCOES_IA.md), cole aqui.', `<textarea class="inp" id="colar" placeholder='{"data":"2026-10-20","turno":"T1","v":{ ... }}'></textarea><div style="margin-top:10px;display:flex;gap:8px"><button class="btn pri" data-act="colar">${ic('check')}Conferir</button></div>`)}
   </div>`;
+  h += planHTML();
   h += `<div class="fdr-chamada reveal"><span class="fc-ic">${ic('alvo')}</span><div><b>As linhas de descarte vieram em branco no RDO?</b><span>Lance linha por linha, com exemplo do que digitar. Vai para a base na nuvem e entra na hora no rendimento de cada item.</span></div><button class="btn tinta" data-act="fdr-abrir">${ic('enviar')}Lançar descartes do RDO</button></div>`;
   if (S.lancErro) h += pane('', '', `<p class="c-ruim" style="margin:0"><b>Não deu certo:</b> ${esc(S.lancErro)}</p>`);
   h += formDescarte();
@@ -4555,6 +4573,243 @@ async function fdrEnviar() {
   S._fdr.msg = ok ? 'nuvem' : 'local';
   fdrRedesenhar();
   render(false);
+}
+
+
+/* ============================================================
+   PLANILHA DE DESCARTES DO PCP (disco T)
+   O painel lê a planilha deles SEM alterar nada (só leitura),
+   transforma cada coluna na linha equivalente do RDO e grava
+   na base (campo "descartes"). A planilha continua sendo deles.
+   ============================================================ */
+
+/* ---------- leitor de .xlsx (sem biblioteca: zip + XML do próprio navegador) ---------- */
+async function lerXlsx(buf) {
+  const u8 = new Uint8Array(buf), dv = new DataView(buf);
+  let eocd = -1;
+  for (let i = u8.length - 22; i >= Math.max(0, u8.length - 70000); i--) if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+  if (eocd < 0) throw new Error('O arquivo não parece ser uma planilha .xlsx.');
+  const n = dv.getUint16(eocd + 10, true); let p = dv.getUint32(eocd + 16, true);
+  const ents = {}, td = new TextDecoder();
+  for (let k = 0; k < n; k++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    const met = dv.getUint16(p + 10, true), tam = dv.getUint32(p + 20, true);
+    const ln = dv.getUint16(p + 28, true), le = dv.getUint16(p + 30, true), lc = dv.getUint16(p + 32, true), off = dv.getUint32(p + 42, true);
+    ents[td.decode(u8.subarray(p + 46, p + 46 + ln))] = { met, tam, off };
+    p += 46 + ln + le + lc;
+  }
+  async function arquivo(nome) {
+    const e = ents[nome]; if (!e) return null;
+    const ini = e.off + 30 + dv.getUint16(e.off + 26, true) + dv.getUint16(e.off + 28, true);
+    const dados = u8.subarray(ini, ini + e.tam);
+    if (e.met === 0) return td.decode(dados);
+    if (e.met !== 8 || typeof DecompressionStream === 'undefined') throw new Error('Este navegador não consegue abrir a planilha (use o Chrome ou o Edge atualizados).');
+    const st = new Blob([dados]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    return await new Response(st).text();
+  }
+  const xml = s => new DOMParser().parseFromString(s, 'application/xml');
+  const wb = xml(await arquivo('xl/workbook.xml'));
+  const rels = xml(await arquivo('xl/_rels/workbook.xml.rels') || '<r/>');
+  const alvoRel = {}; [...rels.getElementsByTagName('Relationship')].forEach(r => (alvoRel[r.getAttribute('Id')] = r.getAttribute('Target')));
+  const ssTxt = await arquivo('xl/sharedStrings.xml');
+  const ss = ssTxt ? [...xml(ssTxt).getElementsByTagName('si')].map(si => [...si.getElementsByTagName('t')].map(t => t.textContent).join('')) : [];
+  const colIdx = ref => { let c = 0; for (const ch of ref.replace(/\d+/g, '')) c = c * 26 + ch.charCodeAt(0) - 64; return c - 1; };
+  const abas = {};
+  for (const sh of wb.getElementsByTagName('sheet')) {
+    const rid = sh.getAttribute('r:id') || sh.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
+    let alvo = alvoRel[rid] || ''; alvo = alvo.replace(/^\/?xl\//, '').replace(/^\//, '');
+    const txt = await arquivo('xl/' + alvo); if (!txt) continue;
+    const linhas = [];
+    for (const row of xml(txt).getElementsByTagName('row')) {
+      const r = +row.getAttribute('r') - 1, lin = [];
+      for (const c of row.getElementsByTagName('c')) {
+        const t = c.getAttribute('t'), v = c.getElementsByTagName('v')[0];
+        let val = null;
+        if (t === 's') val = v ? ss[+v.textContent] : null;
+        else if (t === 'inlineStr') { const is = c.getElementsByTagName('t')[0]; val = is ? is.textContent : null; }
+        else if (t === 'str' || t === 'e') val = v ? v.textContent : null;
+        else if (t === 'b') val = v ? v.textContent === '1' : null;
+        else if (v && v.textContent !== '') val = parseFloat(v.textContent);
+        if (val !== null && val !== '') lin[colIdx(c.getAttribute('r'))] = val;
+      }
+      linhas[r] = lin;
+    }
+    abas[sh.getAttribute('name')] = linhas;
+  }
+  return abas;
+}
+
+/* ---------- de-para: coluna da planilha → linha do RDO ---------- */
+const semAc = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+// [palavras do cabeçalho, linha se a origem for ÁREA DIF, linha se for PCC 1B]
+const PLAN_DEPARA = [
+  [['pes', 'escaldagem'], '1.10', '1.10'], [['pes', 'calo'], '1.11', '1.11'], [['pe inteiro'], '1.9', '1.9'], [['pes', 'queda'], '1.12', '1.12'],
+  [['queda escaldagem'], '1.4', '1.4'], [['escaldagem excessiva'], '1.1', '1.1'], [['ma sangria'], '1.2', '1.2'], [['nao eviscerad'], '1.3', '1.3'],
+  [['pre', 'inspecao'], '2.7', '2.7'], [['linha dif'], '2.8', '2.8'],
+  [['asa'], '2.1', '3.2'], [['file'], '2.2', '3.3'], [['dorso'], '2.3', '3.4'], [['artrite'], '3.6', '3.6'], [['coxa'], '2.4', '3.5'],
+  [['papo'], '2.5', '3.7'], [['aspecto'], '3.8', '3.8'], [['pes'], '2.6', '3.9'], [['pata'], '2.6', '3.9'],
+  [['coracao'], '1.13', '1.13'], [['moela'], '1.14', '1.14'], [['figado'], '1.15', '1.15']
+];
+function planCampo(cab) {
+  const h = semAc(cab); if (!h || /^(data|turno|origem|total)/.test(h)) return null;
+  const d = PLAN_DEPARA.find(([ps]) => ps.every(p => h.includes(p)));
+  return d ? { dif: d[1], pcc: d[2] } : null;
+}
+const serialISO = v => { if (typeof v === 'number') { const d = new Date(Math.round((v - 25569) * 864e5)); return d.toISOString().slice(0, 10); } const m = String(v || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/); return m ? `${m[3].length === 2 ? '20' + m[3] : m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : null; };
+
+// Lê as abas e devolve a soma por dia × turno × linha do RDO
+function descDaPlanilha(abas, desde, ate) {
+  const soma = new Map(), avisos = new Set();
+  for (const [nomeAba, linhas] of Object.entries(abas)) {
+    const iCab = linhas.findIndex(l => l && l.some(c => semAc(c) === 'data') && l.some(c => semAc(c) === 'origem'));
+    if (iCab < 0) continue;
+    const cab = linhas[iCab];
+    // cada bloco (evisceração, escaldagem, pós-chiller) começa numa coluna "Data"
+    const blocos = [];
+    cab.forEach((c, k) => { if (semAc(c) === 'data') blocos.push({ d: k, t: null, o: null, cols: [] }); });
+    blocos.forEach((b, j) => {
+      const fim = j + 1 < blocos.length ? blocos[j + 1].d : cab.length;
+      for (let k = b.d + 1; k < fim; k++) {
+        const h = semAc(cab[k]);
+        if (h === 'turno') b.t = k; else if (h === 'origem') b.o = k;
+        else { const m = planCampo(cab[k]); if (m) b.cols.push({ k, m, nome: String(cab[k]).trim() }); else if (cab[k] && !/^total/.test(h)) avisos.add(`coluna não reconhecida: "${cab[k]}" (${nomeAba})`); }
+      }
+    });
+    for (let r = iCab + 1; r < linhas.length; r++) {
+      const l = linhas[r]; if (!l) continue;
+      for (const b of blocos) {
+        const data = serialISO(l[b.d]); if (!data || data < desde || data > ate) continue;
+        const tt = String(l[b.t] || '').match(/([123])/); if (!tt) continue;
+        const turno = 'T' + tt[1];
+        const pcc = /pcc/i.test(String(l[b.o] || ''));
+        for (const c of b.cols) {
+          const v = l[c.k]; if (typeof v !== 'number' || !(v > 0)) continue;
+          const linha = pcc ? c.m.pcc : c.m.dif;
+          const ch = `${data}|${turno}|${linha}`;
+          const o = soma.get(ch) || { data, turno, linha, qtd: 0, de: [] };
+          o.qtd += v; o.de.push(`${c.nome} · ${pcc ? 'PCC 1B' : 'Área DIF'}`); soma.set(ch, o);
+        }
+      }
+    }
+  }
+  const lista = [...soma.values()].map(o => {
+    const def = RDO.NQ[o.linha], und = def.un === 'und';
+    return { id: idFdr(o.data, o.turno, o.linha), data: o.data, turno: o.turno, linha: o.linha, alvo: und ? 'carcaca' : def.alvo, un: und ? 'carcacas' : 'kg', qtd: Math.round(o.qtd * 1000) / 1000, causa: def.n, obs: 'da planilha: ' + [...new Set(o.de)].join(' + '), lancadoPor: 'planilha de descartes (PCP)' };
+  }).sort((x, y) => (x.data + x.turno + x.linha).localeCompare(y.data + y.turno + y.linha, 'pt-BR', { numeric: true }));
+  return { lista, avisos: [...avisos] };
+}
+
+/* ---------- conexão com o arquivo (fica guardada neste aparelho) ---------- */
+const PLAN = { handle: null, lendo: false, ult: store.get('planUlt', null) };
+const planSuporta = () => typeof window.showOpenFilePicker === 'function';
+function planDB(modo, fn) {
+  return new Promise((ok, erro) => {
+    try {
+      const rq = indexedDB.open('rdo-planilha', 1);
+      rq.onupgradeneeded = () => rq.result.createObjectStore('h');
+      rq.onerror = () => erro(rq.error);
+      rq.onsuccess = () => { const tx = rq.result.transaction('h', modo); const r = fn(tx.objectStore('h')); tx.oncomplete = () => ok(r && 'result' in r ? r.result : undefined); tx.onerror = () => erro(tx.error); };
+    } catch (e) { erro(e); }
+  });
+}
+const planSalvarHandle = h => planDB('readwrite', s => (h ? s.put(h, 'arq') : s.delete('arq')));
+const planCarregarHandle = () => planDB('readonly', s => s.get('arq')).catch(() => null);
+function planDesde() { const reais = S.regs.filter(r => !r.demo).map(r => r.data).sort(); return store.get('planDesde', null) || reais[0] || RDO.addDays(RDO.toISO(new Date()), -30); }
+
+async function planConectar() {
+  if (!planSuporta()) return $('#plan-arq') && $('#plan-arq').click();
+  try {
+    const [h] = await window.showOpenFilePicker({ multiple: false, types: [{ description: 'Planilha de descartes', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx', '.xlsm'] } }] });
+    PLAN.handle = h; await planSalvarHandle(h).catch(() => { });
+    toast('Planilha conectada. Lendo…');
+    await planLer({ manual: true });
+  } catch (e) { if (e && e.name !== 'AbortError') toast('Não consegui conectar: ' + e.message, 4200); }
+}
+async function planDesconectar() {
+  PLAN.handle = null; await planSalvarHandle(null).catch(() => { });
+  store.del('planUlt'); PLAN.ult = null; render(false); toast('Planilha desconectada deste aparelho. Os descartes já lançados continuam na base.');
+}
+// manual = o usuário clicou (pode pedir permissão); auto = só lê se a permissão já estiver dada
+async function planLer(o = {}) {
+  if (PLAN.lendo || S.demo) return;
+  if (!PLAN.handle) PLAN.handle = await planCarregarHandle();
+  if (!PLAN.handle) return;
+  try {
+    let perm = await PLAN.handle.queryPermission({ mode: 'read' });
+    if (perm !== 'granted' && o.manual) perm = await PLAN.handle.requestPermission({ mode: 'read' });
+    if (perm !== 'granted') { PLAN.pedePerm = true; renderFonte(); return; }
+    PLAN.pedePerm = false;
+    const f = await PLAN.handle.getFile();
+    if (!o.manual && PLAN.ult && PLAN.ult.mod === f.lastModified && PLAN.ult.ok) return; // nada mudou desde a última leitura
+    await planProcessar(f, o);
+  } catch (e) {
+    PLAN.ult = Object.assign({}, PLAN.ult, { erro: /NotReadable|lock|busy/i.test(e.name + e.message) ? 'a planilha está aberta em outro computador; tento de novo em 5 minutos' : e.message, quando: Date.now() });
+    store.set('planUlt', PLAN.ult); renderFonte();
+    if (o.manual) toast('Não consegui ler a planilha: ' + PLAN.ult.erro, 4800);
+  }
+}
+async function planProcessar(f, o = {}) {
+  PLAN.lendo = true; renderFonte();
+  try {
+    const abas = await lerXlsx(await f.arrayBuffer());
+    const desde = planDesde(), ate = RDO.toISO(new Date());
+    const { lista, avisos } = descDaPlanilha(abas, desde, ate);
+    const r = await planEnviar(lista, desde, ate, f.name);
+    PLAN.ult = { ok: true, nome: f.name, mod: f.lastModified, quando: Date.now(), n: lista.length, dias: new Set(lista.map(x => x.data + x.turno)).size, novos: r.novos, removidos: r.removidos, destino: r.destino, desde, avisos };
+    store.set('planUlt', PLAN.ult);
+    if (o.manual || r.novos || r.removidos) toast(r.novos || r.removidos ? `Planilha lida: ${r.novos} linha(s) nova(s) ou alterada(s)${r.removidos ? `, ${r.removidos} removida(s)` : ''} ${r.destino === 'nuvem' ? 'gravadas na base da nuvem' : 'salvas neste aparelho'}.` : 'Planilha lida: nada novo para lançar.', 4200);
+  } finally { PLAN.lendo = false; renderFonte(); if (S.view === 'lancar' || S.view === 'perdas') render(false); }
+}
+// compara com o que já está na base e grava só a diferença
+async function planEnviar(lista, desde, ate, nome) {
+  const atual = (S.desc || []).filter(d => d.data >= desde && d.data <= ate);
+  const igual = (a, b) => a && b && +a.qtd === +b.qtd && a.alvo === b.alvo && a.un === b.un && (a.lancadoPor || '') === (b.lancadoPor || '');
+  const agora = agoraISO();
+  const novos = lista.filter(n => !igual(atual.find(d => d.id === n.id), n)).map(n => Object.assign({ lancadoEm: agora }, n));
+  const ids = new Set(lista.map(n => n.id));
+  const remover = atual.filter(d => /^planilha/.test(d.lancadoPor || '') && !ids.has(d.id) && +d.qtd > 0).map(d => d.id);
+  if (!novos.length && !remover.length) return { novos: 0, removidos: 0, destino: 'nada' };
+  const gh = ghCfg(), nuvem = !!(gh.token && gh.owner && gh.repo);
+  if (nuvem) {
+    try {
+      const b = await GH.gravar(null, `Descartes da planilha do PCP (${nome}): ${novos.length} linha(s)${remover.length ? `, ${remover.length} removida(s)` : ''}`, lst => RDO.upsertDesc(lst.filter(d => !remover.includes(d.id)), novos));
+      S.remoto = b.registros; S.remotoDesc = b.descartes || [];
+      store.set('cacheRemoto', { registros: b.registros, descartes: S.remotoDesc, quando: Date.now(), via: 'GitHub (API)' });
+      salvarDescLocais(descLocais().filter(d => !ids.has(d.id) && !remover.includes(d.id)));
+      montarRegs();
+      return { novos: novos.length, removidos: remover.length, destino: 'nuvem' };
+    } catch (e) { toast('Não consegui gravar no GitHub (' + e.message + '). Ficou salvo neste aparelho.', 5000); }
+  }
+  const lapides = atual.filter(d => remover.includes(d.id)).map(d => Object.assign({}, d, { qtd: 0 }));
+  salvarDescLocais(RDO.upsertDesc(descLocais(), novos.concat(lapides)));
+  montarRegs();
+  return { novos: novos.length, removidos: remover.length, destino: 'local' };
+}
+async function planAuto() { try { await planLer({}); } catch (e) { } }
+
+/* ---------- tela (fica em Lançar) ---------- */
+function planHTML() {
+  const u = PLAN.ult, gh = ghCfg(), nuvem = !!(gh.token && gh.owner && gh.repo);
+  const hora = t => new Date(t).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  let st;
+  if (S.demo) st = `<div class="pl-st">${chip('neutro', 'modo demonstração')} <span>Saia da demonstração para ler a planilha.</span></div>`;
+  else if (!u) st = `<div class="pl-st">${chip('neutro', 'não conectada')} <span>Escolha o arquivo uma vez; depois o painel lê sozinho sempre que for aberto neste computador.</span></div>`;
+  else if (u.erro && !u.ok) st = `<div class="pl-st">${chip('ruim', 'erro')} <span>${esc(u.erro)}</span></div>`;
+  else st = `<div class="pl-st">${chip(PLAN.pedePerm ? 'quase' : 'ok', PLAN.pedePerm ? 'precisa de um clique' : 'conectada')} <span><b>${esc(u.nome || '')}</b> · lida em ${hora(u.quando)} · ${u.n} linha(s) de descarte em ${u.dias} turno(s) desde ${RDO.dm(u.desde)}${u.erro ? ` · <span class="c-ruim">${esc(u.erro)}</span>` : ''}</span></div>`;
+  const pend = (S.desc || []).filter(d => /^planilha/.test(d.lancadoPor || '') && +d.qtd > 0);
+  const porDia = {}; pend.forEach(d => { const k = d.data + '|' + d.turno; porDia[k] = porDia[k] || { data: d.data, turno: d.turno, kg: 0, cab: 0, n: 0 }; porDia[k].n++; if (d.un === 'kg') porDia[k].kg += +d.qtd; else porDia[k].cab += +d.qtd; });
+  const dias = Object.values(porDia).sort((x, y) => (y.data + y.turno).localeCompare(x.data + x.turno)).slice(0, 8);
+  const temRDO = d => S.regs.some(r => !r.demo && r.data === d.data && r.turno === d.turno);
+  return `<div class="pane plan reveal"><div class="plan-h"><span class="fc-ic">${ic('tabela')}</span><div><b>Planilha de descartes do PCP (disco T)</b><span>O painel só <b>lê</b> a planilha deles; nada nela é alterado. Cada coluna vira a linha equivalente do RDO e vai para a base ${nuvem ? 'na nuvem' : '(neste aparelho até colar o token em Ajustes)'}.</span></div></div>
+    ${st}
+    <div class="plan-acoes">
+      ${u && !S.demo ? `<button class="btn tinta" data-act="plan-ler">${ic('refresh')}Ler a planilha agora</button><button class="btn" data-act="plan-conectar">${ic('doc')}Trocar arquivo</button><button class="btn ghost" data-act="plan-sair">Desconectar</button>` : !S.demo ? `<button class="btn tinta grande" data-act="plan-conectar">${ic('doc')}Conectar a planilha</button>` : ''}
+      <label class="plan-desde"><span>Lançar a partir de</span><input type="date" class="inp" data-act="plan-desde" value="${planDesde()}"></label>
+      <input type="file" id="plan-arq" accept=".xlsx,.xlsm" data-act="plan-arq" hidden>
+    </div>
+    ${dias.length ? `<div class="tb-wrap" style="margin-top:14px"><table class="tb"><thead><tr><th>Dia</th><th>Turno</th><th class="n">Linhas</th><th class="n">Peças (kg)</th><th class="n">Carcaças</th><th>RDO do dia</th></tr></thead><tbody>${dias.map(d => `<tr><td><b>${RDO.diaCurto(d.data)}</b></td><td>${d.turno === 'T1' ? '1º' : '2º'} turno</td><td class="n">${d.n}</td><td class="n">${N(d.kg, 1)}</td><td class="n">${N(d.cab)}</td><td>${temRDO(d) ? chip('ok', 'já entra no rendimento') : chip('quase', 'esperando o RDO')}</td></tr>`).join('')}</tbody></table></div>` : ''}
+    <details class="det-todas"><summary>Como cada coluna da planilha vira linha do RDO</summary><div class="tb-wrap"><table class="tb"><thead><tr><th>Coluna da planilha</th><th>Área DIF</th><th>PCC 1B</th></tr></thead><tbody>${[['Asa', '2.1', '3.2'], ['Filé', '2.2', '3.3'], ['Dorso', '2.3', '3.4'], ['Coxa', '2.4', '3.5'], ['Artrite', '3.6', '3.6'], ['Papo cheio', '2.5', '3.7'], ['Aspecto repugnante', '3.8', '3.8'], ['Pés/Pata', '2.6', '3.9'], ['Coração · Moela · Fígado', '1.13 · 1.14 · 1.15', '1.13 · 1.14 · 1.15'], ['Escaldagem excessiva (cab.)', '1.1', '1.1'], ['Descartes linha DIF (cab.)', '2.8', '2.8'], ['Carcaça não eviscerada (cab.)', '1.3', '1.3'], ['Má sangria · Queda escaldagem (cab.)', '1.2 · 1.4', '1.2 · 1.4'], ['Pré-inspeção SIF (cab.)', '2.7', '2.7'], ['Pés: inteiro · escaldagem · calo · queda', '1.9 · 1.10 · 1.11 · 1.12', '1.9 · 1.10 · 1.11 · 1.12']].map(([a, b, c]) => `<tr><td>${a}</td><td class="mono">${b}</td><td class="mono">${c}</td></tr>`).join('')}</tbody></table></div><p class="p-sm muted" style="margin-top:8px">Se o PDF do RDO trouxer a mesma linha preenchida, vale o número do RDO (o da planilha é ignorado para não contar duas vezes).</p></details>
+  </div>`;
 }
 
 
@@ -5176,7 +5431,13 @@ function renderFonte() {
   else if (f.tipo === 'cache') { cls = 'local'; t1 = 'Última cópia salva'; t2 = `de ${new Date(f.quando).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`; }
   else { t1 = 'Base embutida no arquivo'; t2 = ghCfg().owner ? 'sem conexão agora' : 'conecte o GitHub em Ajustes'; }
   if (f.erro && !S.demo) t2 = f.erro.length > 60 ? f.erro.slice(0, 58) + '…' : f.erro;
-  el.innerHTML = `<div class="fonte"><span class="led ${cls}"></span><div>${t1}<small>${esc(t2)}</small></div></div>`;
+  el.innerHTML = `<div class="fonte"><span class="led ${cls}"></span><div>${t1}<small>${esc(t2)}</small></div></div>${planFonteHTML()}`;
+}
+function planFonteHTML() {
+  const u = PLAN.ult; if (!u || S.demo) return '';
+  const hora = new Date(u.quando).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  const [cls, t2] = PLAN.lendo ? ['local', 'lendo…'] : PLAN.pedePerm ? ['local', 'toque para ler'] : u.erro && !u.ok ? ['', 'erro: toque para tentar'] : ['on', `lida às ${hora}`];
+  return `<button class="fonte plan-f" data-act="plan-ler" title="Ler a planilha de descartes do PCP agora"><span class="led ${cls}"></span><div>Planilha de descartes<small>${esc(t2)}</small></div></button>`;
 }
 function segHTML(nome, opts, atual, act) {
   const rot = n => { const [lg, cu] = String(n).split('|'); return cu ? `<span class="lg">${lg}</span><span class="cu">${cu}</span>` : lg; };
@@ -5614,6 +5875,9 @@ const ACT = {
   'foco-set': el => ligarFoco(el.dataset.item),
   'foco-limpar': () => desligarFoco(),
   'rdo-tabela': el => { const t = $('.view .rdo-wrap'); if (!t) return; Focus.abrir({ titulo: 'RDO vivo · tabela completa', sub: subTitulo(), html: `<div class="rdo-wrap grande">${t.innerHTML}</div>`, origem: el, tam: 'g', cls: 'foco-tabela' }); },
+  'plan-conectar': () => planConectar(),
+  'plan-ler': () => planLer({ manual: true }),
+  'plan-sair': () => { if (confirm('Desconectar a planilha deste aparelho? Os descartes já lançados continuam na base.')) planDesconectar(); },
   'fdr-abrir': el => fdrAbrir(el.dataset.d || null, el.dataset.t || null, el),
   'fdr-dia': el => { const F = S._fdr; if (!F) return; const ds = [...new Set(S.regs.filter(r => r.turno === F.turno).map(r => r.data))].sort(); const alvo = +el.dataset.d < 0 ? ds.filter(x => x < F.data).pop() : ds.find(x => x > F.data); if (!alvo) return toast(+el.dataset.d < 0 ? 'Não há lançamento anterior deste turno.' : 'Este é o último lançamento deste turno.'); fdrIr(alvo, F.turno); },
   'fdr-ir': el => fdrIr(el.dataset.d, S._fdr ? S._fdr.turno : 'T1'),
@@ -5744,7 +6008,9 @@ const CHG = {
   tendInd: el => { S.tendInd = el.value; render(false); },
   cmpBde: el => { S.cmpBde = el.value; render(false); }, cmpBate: el => { S.cmpBate = el.value; render(false); },
   data: el => { if (!el.value) return; S.ref = el.value; if (S.per === 'perso') S.per = 'dia'; render(true, 'fade'); },
-  'fdr-data': el => { if (el.value && S._fdr) fdrIr(el.value, S._fdr.turno); }
+  'fdr-data': el => { if (el.value && S._fdr) fdrIr(el.value, S._fdr.turno); },
+  'plan-desde': el => { if (!el.value) return; store.set('planDesde', el.value); if (PLAN.ult) { PLAN.ult.mod = null; planLer({ manual: true }); } },
+  'plan-arq': async el => { const f = el.files && el.files[0]; el.value = ''; if (!f) return; try { await planProcessar(f, { manual: true }); } catch (e) { toast('Não consegui ler a planilha: ' + e.message, 4800); } }
 };
 // descartes que vão junto quando a base é baixada (os da nuvem + os deste aparelho, sem os apagados)
 function descParaBase() {
@@ -5859,8 +6125,9 @@ function iniciar() {
   histInit();
   ligarEventos();
   render(true, 'fade');
-  sincronizar(false);
+  sincronizar(false).catch(() => { }).then(() => planAuto());
   setInterval(() => { if (document.visibilityState === 'visible') sincronizar(false); }, 4 * 60 * 1000);
+  setInterval(() => { if (document.visibilityState === 'visible') planAuto(); }, 5 * 60 * 1000);
   if (/apresentar/.test(location.search)) setTimeout(apresentar, 600);
 }
 document.addEventListener('DOMContentLoaded', iniciar);
@@ -5870,7 +6137,7 @@ document.addEventListener('DOMContentLoaded', iniciar);
 # LEI DE LANÇAMENTO DO RDO · RDO Rondon
 
 > **Documento exclusivo da IA que lança o RDO.** Não aparece no painel e não é para o usuário ler.
-> **Versão 2 · 21/10/2026.** Vale para todo lançamento, sempre, do começo ao fim.
+> **Versão 3 · 21/10/2026.** Vale para todo lançamento, sempre, do começo ao fim.
 
 ---
 
@@ -6469,6 +6736,58 @@ Gere só os registros novos como JSON (`{"registros":[ … ]}`) e entregue ao us
 
 ---
 
+## 17. Planilha de descartes do PCP (DESCARTE_RONDON_NOVA.xlsx)
+
+O PCP preenche uma planilha própria de descartes, no disco T da empresa. **Ela é deles: nunca altere, renomeie ou salve por cima dela.** Normalmente o próprio painel lê essa planilha sozinho (Lançar › Planilha de descartes do PCP) e grava os descartes na base. Se o usuário te mandar o arquivo e pedir o lançamento, faça exatamente o que o painel faz:
+
+**Onde está cada coisa na planilha**
+
+- Abas `1ºTURNO` e `2ºTURNO`. O turno de cada linha vem da coluna **Turno** da própria linha (`1T` → `T1`, `2T` → `T2`), não do nome da aba.
+- Cabeçalho na linha 4. Três blocos lado a lado, cada um com suas colunas `Data`, `Turno` e `Origem`:
+  1. **Evisceração** (colunas A a R). É o bloco que costuma vir preenchido.
+  2. **Escaldagem** (T a AD).
+  3. **Pós-chiller** (AF a AO).
+- Cada dia tem duas linhas por turno: `ÁREA DIF` e `PCC 1B`.
+- A coluna `Total` é ignorada. Células vazias ou com 0 são ignoradas.
+- A data vem como data do Excel; converta para `AAAA-MM-DD`.
+
+**De-para (coluna → linha do RDO)**
+
+| Coluna da planilha | Linha se ÁREA DIF | Linha se PCC 1B |
+|---|---|---|
+| Asa (kg) | 2.1 | 3.2 |
+| Filé (kg) | 2.2 | 3.3 |
+| Dorso (kg) | 2.3 | 3.4 |
+| Coxa (kg) | 2.4 | 3.5 |
+| Artrite (kg) | 3.6 | 3.6 |
+| Papo cheio (kg) | 2.5 | 3.7 |
+| Aspecto repugnante (kg) | 3.8 | 3.8 |
+| Pés/Pata (kg) | 2.6 | 3.9 |
+| Coração · Moela · Fígado (kg) | 1.13 · 1.14 · 1.15 | 1.13 · 1.14 · 1.15 |
+| Escaldagem excessiva (cab.) | 1.1 | 1.1 |
+| Descartes linha DIF (cab.) | 2.8 | 2.8 |
+| Carcaça não eviscerada (cab.) | 1.3 | 1.3 |
+| Má sangria (cab.) · Queda escaldagem (cab.) | 1.2 · 1.4 | 1.2 · 1.4 |
+| Pré-inspeção SIF (cab.) | 2.7 | 2.7 |
+| Pé inteiro · Pés escaldagem excessiva · Pés com calo · Pés queda (kg) | 1.9 · 1.10 · 1.11 · 1.12 | 1.9 · 1.10 · 1.11 · 1.12 |
+
+**Como lançar**
+
+1. Some, por dia × turno × linha do RDO, os valores de todos os blocos e das duas origens que caem na mesma linha.
+2. Lance só a partir da data do primeiro registro de RDO da base, ou da data que o usuário pedir.
+3. Grave cada soma no array `descartes`, no formato do painel:
+
+   ```json
+   {"id":"nq-2026-10-19-T1-3.4","data":"2026-10-19","turno":"T1","linha":"3.4","alvo":"DORSO","un":"kg","qtd":2090.624,"causa":"Dorso (PCC)","obs":"da planilha: Dorso (Kg´s) · PCC 1B","lancadoPor":"planilha de descartes (PCP)","lancadoEm":"2026-10-21T15:30:00-03:00"}
+   ```
+
+   - `alvo` e `causa` saem da tabela 6.4.
+   - Linha em cabeças: `"un":"carcacas"` e `"alvo":"carcaca"`.
+4. Mesmo `id` já na base: substitua, porque a planilha é a fonte. Não mexa nos outros descartes.
+5. **Não copie nada da planilha para `naoQualidade`.** `naoQualidade` é só o que veio no PDF do RDO. Quando o PDF trouxer a mesma linha, o painel usa o número do RDO e ignora o da planilha, para não contar duas vezes.
+
+---
+
 ## Anexo A · Leitor de referência (Python)
 
 Faz o mesmo que o leitor embutido no painel: acha turno, semana e datas; lê a página 1 e a página 2 por coluna; monta os registros dos dias com produção; roda as 16 conferências; lista as linhas de descarte em branco. Testado contra os registros reais de 19 e 20/10/2026: resultado idêntico, 16/16 conferências.
@@ -6751,7 +7070,7 @@ if __name__ == '__main__':
 
 ---
 
-*Fim da LEI. Versão 2 · 21/10/2026. Histórico: v1 era o INSTRUCOES_IA.md original; v2 acrescenta o mapa do PDF, as regras de células vazias, os descartes lançados no painel, as 16 conferências e o leitor de referência.*
+*Fim da LEI. Versão 3 · 21/10/2026. Histórico: v1 era o INSTRUCOES_IA.md original; v2 acrescentou o mapa do PDF, as regras de células vazias, os descartes lançados no painel, as 16 conferências e o leitor de referência; v3 acrescentou a planilha de descartes do PCP (seção 17).*
 
 </script>
 </body>
