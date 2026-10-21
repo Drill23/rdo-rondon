@@ -2827,27 +2827,44 @@ function carregarCfg() {
 let CFG = carregarCfg();
 function salvarCfg() { store.set('cfg', CFG); invalidar(); }
 
+// Base oficial do sistema. É usada quando não há nada salvo em Ajustes e o endereço da página
+// não revela o repositório (ex.: arquivo aberto direto do computador).
+const GH_PADRAO = { owner: 'Drill23', repo: 'rdo-rondon', branch: 'main', path: 'dados/rdo-base.json' };
+// Endereço real da página. No portal unificado o RDO roda num iframe "about:srcdoc" (sem endereço
+// próprio), então procuramos em ordem: a própria página, o endereço que o portal entrega ao abrir o
+// iframe, a janela de cima, o endereço-base do documento e, por último, o referrer.
+function paginaReal() {
+  const cand = [];
+  try { if (location.hostname) cand.push(location.href); } catch (e) { }
+  try { if (window.__RDO_ORIGEM) cand.push(window.__RDO_ORIGEM); } catch (e) { }
+  try { if (window.parent !== window && parent.location.hostname) cand.push(parent.location.href); } catch (e) { }
+  try { if (document.baseURI && !/^about:/i.test(document.baseURI)) cand.push(document.baseURI); } catch (e) { }
+  try { if (document.referrer) cand.push(document.referrer); } catch (e) { }
+  for (const c of cand) { try { const u = new URL(c); if (u.hostname) return u; } catch (e) { } }
+  return null;
+}
 function ghAuto() {
-  let loc = location;
-  if (!loc.hostname && document.referrer) { try { loc = new URL(document.referrer); } catch (e) { } }
-  const h = loc.hostname || '';
+  const u = paginaReal(), h = u ? u.hostname : '';
   if (/\.github\.io$/i.test(h)) {
     const owner = h.split('.')[0];
-    const seg = loc.pathname.split('/').filter(Boolean)[0];
-    const repo = seg && !/\.html?$/i.test(seg) ? seg : `${owner}.github.io`;
-    return { owner, repo, pages: true };
+    const seg = u.pathname.split('/').filter(Boolean)[0];
+    const projeto = seg && !/\.html?$/i.test(seg);
+    const repo = projeto ? seg : `${owner}.github.io`;
+    return { owner, repo, pages: true, pagesBase: `${u.origin}/${projeto ? seg + '/' : ''}` };
   }
   return null;
 }
 function ghCfg() {
   const s = store.get('gh', {});
   const auto = ghAuto() || {};
+  const owner = s.owner || auto.owner || GH_PADRAO.owner, repo = s.repo || auto.repo || GH_PADRAO.repo;
+  const mesmo = !!auto.owner && owner.toLowerCase() === auto.owner.toLowerCase() && repo.toLowerCase() === String(auto.repo).toLowerCase();
   return {
-    owner: s.owner || auto.owner || '', repo: s.repo || auto.repo || '',
-    branch: s.branch || 'main', path: s.path || 'dados/rdo-base.json', token: s.token || '',
-    pages: !!auto.pages && (!s.owner || s.owner === auto.owner) && (!s.repo || s.repo === auto.repo)
+    owner, repo, branch: s.branch || GH_PADRAO.branch, path: s.path || GH_PADRAO.path, token: s.token || '',
+    pages: !!auto.pages && mesmo, pagesBase: mesmo ? auto.pagesBase : '', origem: s.owner ? 'ajustes' : auto.owner ? 'endereco' : 'padrao'
   };
 }
+
 
 /* ---------------- ESTADO ---------------- */
 const S = {
@@ -2874,7 +2891,7 @@ function montarRegs() {
   let base;
   if (S.demo) base = demoRegs();
   else {
-    base = S.remoto ? S.remoto.slice() : (typeof BASE_EMBUTIDA !== 'undefined' ? (BASE_EMBUTIDA.registros || []).slice() : []);
+    base = S.remoto ? S.remoto.slice() : []; // sem base carregada não mostra registros de exemplo como se fossem reais
     const loc = locais();
     if (loc.length) base = RDO.upsert(base, loc).map(r => { if (loc.some(l => l.id === r.id)) r._local = true; return r; });
   }
@@ -2882,7 +2899,7 @@ function montarRegs() {
   // descartes lançados à parte (fora do RDO)
   if (S.demo) S.desc = [];
   else {
-    let dsc = S.remotoDesc ? S.remotoDesc.slice() : (typeof BASE_EMBUTIDA !== 'undefined' ? (BASE_EMBUTIDA.descartes || []).slice() : []);
+    let dsc = S.remotoDesc ? S.remotoDesc.slice() : [];
     const dl = descLocais();
     if (dl.length) dsc = RDO.upsertDesc(dsc, dl).map(d => Object.assign({}, d, { _local: dl.some(l => l.id === d.id) }));
     S.desc = dsc;
@@ -3050,27 +3067,36 @@ const GH = (() => {
   }
   const H = t => ({ Authorization: 'Bearer ' + t, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' });
 
+  // Lê a base tentando, em ordem, todos os caminhos possíveis; o primeiro que responder vence.
+  // (No portal unificado o RDO roda dentro de um iframe sem endereço próprio, então nunca
+  //  dependemos de um único caminho.)
   async function carregar() {
     const c = ghCfg();
-    let url, opt = { cache: 'no-store' }, via;
-    if (c.token && c.owner && c.repo) {
-      url = `https://api.github.com/repos/${c.owner}/${c.repo}/contents/${enc(c.path)}?ref=${encodeURIComponent(c.branch)}`;
-      opt.headers = Object.assign(H(c.token), { Accept: 'application/vnd.github.raw+json' });
-      via = 'GitHub (API)';
-    } else if (c.pages) {
-      url = `${c.path}?v=${Date.now()}`; via = 'GitHub Pages';
-    } else if (c.owner && c.repo) {
-      url = `https://raw.githubusercontent.com/${c.owner}/${c.repo}/${c.branch}/${enc(c.path)}?v=${Date.now()}`; via = 'GitHub';
-    } else return null;
-    const r = await fetch(url, opt);
-    if (r.status === 404) throw new Error('O arquivo da base não foi encontrado no GitHub (' + c.path + ').');
-    if (r.status === 401 || r.status === 403) throw new Error('O GitHub recusou o acesso. Confira o token em Ajustes.');
-    if (!r.ok) throw new Error('GitHub respondeu ' + r.status + '.');
-    const txt = await r.text();
-    let j;
-    try { j = JSON.parse(txt); } catch (e) { throw new Error('O arquivo da base no GitHub está com o formato quebrado (JSON inválido). Abra-o no GitHub e confira a última linha que a IA mexeu.'); }
-    const regs = Array.isArray(j) ? j : (j.registros || []);
-    return { registros: regs, descartes: Array.isArray(j.descartes) ? j.descartes : [], via, atualizadoEm: j.atualizadoEm };
+    if (!c.owner || !c.repo) return null;
+    const t = Date.now(), api = `https://api.github.com/repos/${c.owner}/${c.repo}/contents/${enc(c.path)}?ref=${encodeURIComponent(c.branch)}`;
+    const tent = [];
+    if (c.token) tent.push({ url: api, opt: { headers: Object.assign(H(c.token), { Accept: 'application/vnd.github.raw+json' }) }, via: 'GitHub (API)' });
+    if (c.pages && c.pagesBase) tent.push({ url: `${c.pagesBase}${c.path}?v=${t}`, via: 'GitHub Pages' });
+    tent.push({ url: `https://raw.githubusercontent.com/${c.owner}/${c.repo}/${encodeURIComponent(c.branch)}/${enc(c.path)}?v=${t}`, via: 'GitHub' });
+    if (!c.token) tent.push({ url: api, opt: { headers: { Accept: 'application/vnd.github.raw+json' } }, via: 'GitHub (API pública)' });
+    let erro = null;
+    for (const x of tent) {
+      try {
+        const r = await fetch(x.url, Object.assign({ cache: 'no-store' }, x.opt || {}));
+        if (!r.ok) {
+          const msg = r.status === 404 ? `O arquivo da base não foi encontrado no GitHub (${c.owner}/${c.repo} → ${c.path}).` : (r.status === 401 || r.status === 403) ? (x.via === 'GitHub (API)' ? 'O GitHub recusou o token. Confira o token em Ajustes.' : 'O GitHub recusou o acesso (repositório privado? cole um token em Ajustes).') : `GitHub respondeu ${r.status}.`;
+          if (!erro || r.status !== 404) erro = msg;
+          continue;
+        }
+        const txt = await r.text();
+        let j;
+        try { j = JSON.parse(txt); } catch (e) { erro = 'O arquivo da base no GitHub está com o formato quebrado (JSON inválido). Abra-o no GitHub e confira a última linha que a IA mexeu.'; continue; }
+        const regs = Array.isArray(j) ? j : (j.registros || []);
+        if (!Array.isArray(regs)) { erro = 'O arquivo da base não tem a lista de registros.'; continue; }
+        return { registros: regs, descartes: Array.isArray(j.descartes) ? j.descartes : [], via: x.via, atualizadoEm: j.atualizadoEm };
+      } catch (e) { if (!erro) erro = 'Sem acesso à internet ou ao GitHub agora (' + (e.message || e) + ').'; }
+    }
+    throw new Error(erro || 'Não consegui ler a base no GitHub.');
   }
 
   async function lerParaEscrever(c) {
@@ -4462,7 +4488,7 @@ function vBase() {
 function vAjustes() {
   const gh = ghCfg(); const auto = ghAuto();
   const tema = store.get('tema', 'auto');
-  let h = pane('Conexão com o GitHub', auto ? `Detectado automaticamente pelo endereço: <b>${esc(auto.owner)}/${esc(auto.repo)}</b>. Só precisa do token se quiser publicar daqui.` : 'Onde a base de dados fica guardada. Se você abrir o sistema pelo link do GitHub Pages, usuário e repositório são detectados sozinhos.', `
+  let h = pane('Conexão com o GitHub', gh.origem === 'ajustes' ? `Usando o que foi salvo neste aparelho: <b>${esc(gh.owner)}/${esc(gh.repo)}</b>. Para voltar ao automático, apague usuário e repositório e salve.` : gh.origem === 'endereco' ? `Detectado automaticamente pelo endereço: <b>${esc(gh.owner)}/${esc(gh.repo)}</b>. Só precisa do token se quiser publicar daqui.` : `Base oficial do sistema: <b>${esc(gh.owner)}/${esc(gh.repo)}</b> (já vem configurada). Só precisa do token se quiser publicar daqui.`, `
     <div class="row c3"><div class="field"><label>Usuário (dono do repositório)</label><input class="inp" id="gh-owner" value="${esc(gh.owner)}" placeholder="ex.: adrianoalmeida"></div>
     <div class="field"><label>Repositório</label><input class="inp" id="gh-repo" value="${esc(gh.repo)}" placeholder="ex.: rdo-rondon"></div>
     <div class="field"><label>Ramo</label><input class="inp" id="gh-branch" value="${esc(gh.branch)}"></div></div>
@@ -5589,7 +5615,8 @@ function renderFonte() {
   if (S.demo) { cls = 'demo'; t1 = 'Demonstração'; t2 = 'números simulados'; }
   else if (f.tipo === 'github') { cls = 'on'; t1 = 'Conectado ao GitHub'; t2 = `atualizado às ${hora(f.quando)}`; }
   else if (f.tipo === 'cache') { cls = 'local'; t1 = 'Última cópia salva'; t2 = `de ${new Date(f.quando).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}`; }
-  else { t1 = 'Base embutida no arquivo'; t2 = ghCfg().owner ? 'sem conexão agora' : 'conecte o GitHub em Ajustes'; }
+  else if (S.baseStatus === 'carregando') { cls = 'local'; t1 = 'Conectando ao GitHub'; t2 = `${ghCfg().owner}/${ghCfg().repo}`; }
+  else { t1 = 'Sem conexão com a base'; t2 = 'toque em atualizar para tentar de novo'; }
   if (f.erro && !S.demo) t2 = f.erro.length > 60 ? f.erro.slice(0, 58) + '…' : f.erro;
   el.innerHTML = `<div class="fonte"><span class="led ${cls}"></span><div>${t1}<small>${esc(t2)}</small></div></div>${planFonteHTML()}`;
 }
@@ -5691,7 +5718,8 @@ function render(anim = true, dir = 'fwd') {
   const v = VIEWS[S.view];
   renderNav(); renderToolbar(); renderFiltros(); renderDemoFaixa();
   let html;
-  try { html = v.r(); } catch (e) { console.error(e); html = pane('Algo deu errado nesta tela', '', `<p class="c-ruim">${esc(e.message)}</p><p class="p-sm">Tente outra data ou recarregue a página. Se continuar, a base pode ter um lançamento com formato estranho (veja em Base de dados).</p>`); }
+  if (!S.demo && !S.regs.length && v.per && S.baseStatus !== 'ok') html = estadoBaseHTML();
+  else try { html = v.r(); } catch (e) { console.error(e); html = pane('Algo deu errado nesta tela', '', `<p class="c-ruim">${esc(e.message)}</p><p class="p-sm">Tente outra data ou recarregue a página. Se continuar, a base pode ter um lançamento com formato estranho (veja em Base de dados).</p>`); }
   const el = $('#view');
   el.innerHTML = `<div class="view-in ${v.larga ? 'larga' : ''} ${anim && !reduzMov() ? dir : ''}">${html}</div>`;
   if (anim) { el.scrollTop = 0; if (celular()) window.scrollTo(0, 0); }
@@ -5746,6 +5774,7 @@ async function sincronizar(manual) {
   try {
     const r = await GH.carregar();
     if (r) {
+      S.baseStatus = 'ok';
       S.remoto = r.registros; S.remotoDesc = r.descartes || [];
       S.fonte = { tipo: 'github', via: r.via, quando: new Date(), atualizadoEm: r.atualizadoEm };
       store.set('cacheRemoto', { registros: r.registros, descartes: S.remotoDesc, quando: Date.now(), via: r.via });
@@ -5753,6 +5782,7 @@ async function sincronizar(manual) {
     } else if (manual) toast('Configure o GitHub em Ajustes para buscar a base.');
   } catch (e) {
     S.fonte = Object.assign({}, S.fonte, { erro: e.message });
+    if (!S.remoto) S.baseStatus = 'erro';
     if (manual) toast(e.message, 4200);
   } finally {
     sincronizando = false;
@@ -5762,7 +5792,14 @@ async function sincronizar(manual) {
   montarRegs();
   const ultima = datasComDados().slice(-1)[0];
   if (ultimaAntes && refAntes === ultimaAntes && ultima && ultima > ultimaAntes) S.ref = ultima;
-  if (assinatura() !== antes || manual) render(false); else renderFonte();
+  if (assinatura() !== antes || manual || S.baseStatus !== S._baseStatusAntes) render(false); else renderFonte();
+  S._baseStatusAntes = S.baseStatus;
+}
+// Tela mostrada enquanto a base não chegou (ou se não deu para buscar): nunca exibe dados de exemplo como reais.
+function estadoBaseHTML() {
+  const gh = ghCfg(), alvo = `${esc(gh.owner)}/${esc(gh.repo)} → ${esc(gh.path)}`;
+  if (S.baseStatus !== 'erro') return `<div class="pane reveal in"><div class="vazio-grande" style="padding:42px 16px">${ic('refresh', 'gira')}<h3>Buscando a base no GitHub…</h3><p class="mono" style="font-size:12.5px">${alvo}</p><p>Na primeira abertura pode levar alguns segundos.</p></div></div>`;
+  return `<div class="pane reveal in"><div class="vazio-grande" style="padding:36px 16px">${ic('quase')}<h3>Não consegui carregar a base do RDO</h3><p>${esc((S.fonte && S.fonte.erro) || 'Sem resposta do GitHub.')}</p><p class="mono" style="font-size:12.5px">Base procurada: ${alvo}</p><p class="p-sm muted">Nenhum dado de exemplo é mostrado no lugar. Confira a internet, ou se a rede da empresa libera github.com e raw.githubusercontent.com.</p></div><div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin:0 0 26px"><button class="btn tinta grande" data-act="sync">${ic('refresh')}Tentar de novo</button><button class="btn grande" data-act="view" data-v="ajustes">${ic('ajustes')}Abrir Ajustes</button></div></div>`;
 }
 function addPendente(r, por) {
   const c = RDO.canonico(Object.assign({}, r, { lancadoPor: r.lancadoPor || por, lancadoEm: r.lancadoEm || agoraISO() }));
@@ -6174,7 +6211,7 @@ const CHG = {
 };
 // descartes que vão junto quando a base é baixada (os da nuvem + os deste aparelho, sem os apagados)
 function descParaBase() {
-  const base = S.remotoDesc ? S.remotoDesc : (typeof BASE_EMBUTIDA !== 'undefined' ? BASE_EMBUTIDA.descartes || [] : []);
+  const base = S.remotoDesc ? S.remotoDesc : [];
   return RDO.upsertDesc(base, descLocais()).filter(d => +d.qtd > 0).map(d => { const c = Object.assign({}, d); delete c._local; return c; });
 }
 function csv(regs) {
@@ -6279,6 +6316,7 @@ function iniciar() {
   if (store.get('calmo', false)) document.documentElement.classList.add('calmo');
   const cache = store.get('cacheRemoto', null);
   if (cache && Array.isArray(cache.registros) && cache.registros.length) { S.remoto = cache.registros; S.remotoDesc = cache.descartes || []; S.fonte = { tipo: 'cache', quando: cache.quando, via: cache.via }; }
+  S.baseStatus = S.remoto ? 'ok' : 'carregando'; S._baseStatusAntes = S.baseStatus;
   lerHash();
   montarRegs();
   if (!S.regs.some(r => r.data === S.ref)) S.ref = datasComDados().slice(-1)[0] || S.ref;
@@ -15231,7 +15269,7 @@ if (typeof module !== 'undefined') module.exports = RECO;
   };
   var frames = {}, atual = 'home';
   var $ = function (s) { return document.querySelector(s); };
-  function texto(id) { return document.getElementById(id).textContent.replace(/<⁄script/gi, '</script').replace(/<!⁄--/g, '<!--'); }
+  function texto(id) { return document.getElementById(id).textContent.replace(/<⁄script/gi, '<' + '/script').replace(/<!⁄--/g, '<' + '!--'); }
 
   function abrirFrame(k) {
     if (frames[k]) return frames[k];
@@ -15240,7 +15278,12 @@ if (typeof module !== 'undefined') module.exports = RECO;
     f.setAttribute('allowfullscreen', '');
     f.dataset.sis = k;
     f.addEventListener('load', function () { f._pronto = true; try { f.contentWindow.document.addEventListener('keydown', atalhoInicio); } catch (e) { } if (atual === k) mostrarFrame(k); });
-    f.srcdoc = texto(SIS[k].bloco);
+    var doc = texto(SIS[k].bloco);
+    // o iframe "about:srcdoc" não tem endereço próprio: entregamos a ele o endereço real desta página
+    // (o RDO usa isso para achar a base no GitHub sozinho, mesmo sem nada salvo)
+    var origem = '<scr' + 'ipt>window.__RDO_ORIGEM=' + JSON.stringify(location.href) + ';<' + '/script>';
+    doc = doc.replace(/<head>/i, '<head>' + origem);
+    f.srcdoc = doc;
     $('#palco').appendChild(f);
     frames[k] = f;
     return f;
@@ -16122,6 +16165,12 @@ Mensagens de commit:
 - Base do RDO: `RDO dd/mm Tn (IA): k lançamento(s): dd/mm, dd/mm`.
 - Painel: `Painel: nova versão (o que mudou em poucas palavras)`.
 - LEI: `LEI de lançamento: versão N`.
+
+**Endereço da base que o painel usa.**
+- O `index.html` já vem apontando para a base oficial: `Drill23/rdo-rondon`, branch `main`, `dados/rdo-base.json`. Está na constante `GH_PADRAO`, dentro do bloco do RDO.
+- Ele acha a base sozinho em qualquer forma de abrir: pelo link do GitHub Pages, entrando pela tela inicial, trocando entre RDO e Radar, no celular, ou com o arquivo aberto direto do computador.
+- Se o repositório mudar de nome ou de dono, troque a `GH_PADRAO` e suba o `index.html` de novo.
+- Se não conseguir ler a base, o painel mostra um aviso de erro. Ele nunca mostra registros de exemplo como se fossem dados reais.
 
 **Para quem sobe pelo site do GitHub:** no repositório, clique em **Add file › Upload files**, arraste o `index.html` (e/ou o `INSTRUCOES_IA.md`) e clique em **Commit changes**. O arquivo novo substitui o antigo com o mesmo nome.
 

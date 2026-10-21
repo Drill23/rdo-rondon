@@ -787,6 +787,12 @@ Mensagens de commit:
 - Painel: `Painel: nova versão (o que mudou em poucas palavras)`.
 - LEI: `LEI de lançamento: versão N`.
 
+**Endereço da base que o painel usa.**
+- O `index.html` já vem apontando para a base oficial: `Drill23/rdo-rondon`, branch `main`, `dados/rdo-base.json`. Está na constante `GH_PADRAO`, dentro do bloco do RDO.
+- Ele acha a base sozinho em qualquer forma de abrir: pelo link do GitHub Pages, entrando pela tela inicial, trocando entre RDO e Radar, no celular, ou com o arquivo aberto direto do computador.
+- Se o repositório mudar de nome ou de dono, troque a `GH_PADRAO` e suba o `index.html` de novo.
+- Se não conseguir ler a base, o painel mostra um aviso de erro. Ele nunca mostra registros de exemplo como se fossem dados reais.
+
 **Para quem sobe pelo site do GitHub:** no repositório, clique em **Add file › Upload files**, arraste o `index.html` (e/ou o `INSTRUCOES_IA.md`) e clique em **Commit changes**. O arquivo novo substitui o antigo com o mesmo nome.
 
 Depois de subir:
