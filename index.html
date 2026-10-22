@@ -1974,6 +1974,13 @@ const RDO = (() => {
     '5.2': { n: 'PCC 1B', un: 'und', sub: 1 }, '5.2.1': { n: 'Contaminações (PCC 1B)', un: 'und' }, '5.2.1.1': { n: 'Fecal (PCC 1B)', un: 'und' }, '5.2.1.2': { n: 'Biliar (PCC 1B)', un: 'und' }, '5.2.1.3': { n: 'Gástrica (PCC 1B)', un: 'und' }, '5.2.2': { n: 'Cloaca (PCC 1B)', un: 'und' }, '5.2.3': { n: 'Frango mal eviscerado (PCC 1B)', un: 'und' }
   };
 
+  /* Linhas gêmeas confirmadas (planilha do PCP × PDF do RDO): o PCP lança primeiro na planilha
+     com nomes diferentes e copia o MESMO descarte para o RDO (conferido por valor, ex.: 19/10 T2
+     Asa 79,32 kg na planilha ≈ 79 no RDO). Escopo: só estas linhas e só para deduplicar
+     lançamentos à parte/planilha entre si e contra o RDO — linhas do próprio RDO nunca se fundem. */
+  const DESC_GEMEOS = { '2.1': '3.2', '3.2': '2.1', '2.2': '3.3', '3.3': '2.2', '2.3': '3.4', '3.4': '2.3', '2.4': '3.5', '3.5': '2.4', '2.5': '3.7', '3.7': '2.5', '2.6': '3.9', '3.9': '2.6' };
+  const DESC_TOL = q => Math.max(0.75, Math.abs(+q || 0) * 0.01); // o PDF do RDO arredonda para inteiro
+
   // o que pode ser descartado (lançamento à parte)
   const DESC_ALVOS = [
     { k: 'carcaca', n: 'Carcaça inteira (condena)' },
@@ -2081,13 +2088,28 @@ const RDO = (() => {
     }
     const man = (rec._descMan || []).filter(m => isNum(+m.qtd) && +m.qtd > 0);
     const manTem = k => man.some(m => m.linha === k);
-    for (const m of man) {
+    // primeira fonte vence: processa os lançamentos à parte do mais antigo pro mais novo;
+    // quem não tem data fica por último, na ordem em que veio
+    const manOrd = man.slice().sort((a, b) => String(a.lancadoEm || '9999').localeCompare(String(b.lancadoEm || '9999')));
+    const vistoCanon = {}; // item canônico (linha e linha gêmea contam como a mesma) já coberto
+    const canonDe = k => DESC_GEMEOS[k] ? [k, DESC_GEMEOS[k]].sort().join('~') : k;
+    for (const m of manOrd) {
       const qtd = +m.qtd;
       if (m.linha && NQ[m.linha]) {
-        // linha do RDO lançada à mão (veio em branco no PDF). Se o RDO trouxer a mesma linha, vale o RDO.
-        const def = NQ[m.linha], par = parDe(m.linha);
-        if (temRDO(m.linha) || (par && temRDO(par))) { d.descIgnorados.push(m); continue; }
+        // linha do RDO lançada à mão (veio em branco no PDF). Se o RDO trouxer a mesma linha (ou a gêmea), vale o RDO.
+        const def = NQ[m.linha], par = parDe(m.linha), gem = DESC_GEMEOS[m.linha];
+        const cobreRDO = temRDO(m.linha) ? m.linha : (par && temRDO(par)) ? par : (gem && temRDO(gem)) ? gem : null;
+        if (cobreRDO) {
+          d.descIgnorados.push(Math.abs(d.nq[cobreRDO] - qtd) > DESC_TOL(qtd) ? Object.assign({}, m, { divergente: d.nq[cobreRDO], divergeDe: 'RDO linha ' + cobreRDO }) : m);
+          continue;
+        }
         if (def.un === 'und' && par && manTem(par)) continue; // carcaças e kg da mesma causa: vale o kg
+        const ch = canonDe(m.linha);
+        if (vistoCanon[ch]) {
+          d.descIgnorados.push(Math.abs(vistoCanon[ch] - qtd) > DESC_TOL(qtd) ? Object.assign({}, m, { divergente: vistoCanon[ch], divergeDe: 'lançamento anterior' }) : m);
+          continue;
+        }
+        vistoCanon[ch] = qtd;
         const und = def.un === 'und';
         addD('man:' + m.id, def.n, und ? 'carcaca' : (def.alvo || 'carcaca'), und ? 'carcacas' : 'kg', qtd, und ? distCarc(qtd) : distKg(def.alvo || 'carcaca', qtd), 'manual', m.obs, m.linha);
         continue;
@@ -2520,7 +2542,7 @@ const RDO = (() => {
     status, derivar, agregar, analisarItens, caixas, ponte, impacto, auditar,
     media, desvio, regressao, prever, chance, normCdf,
     num, pct, sinal, kg, fmtLinha, DIAS, DIAS_LONGOS, MESES, MESES_C, dm, diaCurto,
-    resumoWhats, leitura, canonico, serializar, upsert, upsertDesc, canonDesc, DESC_ALVOS, nomeAlvo
+    resumoWhats, leitura, canonico, serializar, upsert, upsertDesc, canonDesc, DESC_ALVOS, nomeAlvo, DESC_GEMEOS, DESC_TOL
   };
 })();
 
@@ -3068,6 +3090,57 @@ function salvarLocais(lista) { store.set('locais', lista); }
 function descLocais() { return store.get('descLocais', []); }
 function salvarDescLocais(lista) { store.set('descLocais', lista); }
 
+/* Aviso (não destrutivo): mesmo descarte com valores DIFERENTES entre as fontes.
+   Conta uma vez (o primeiro lançado / o RDO) e mostra a divergência para conferência. */
+function avisoDivergDesc(lst) {
+  try {
+    const gem = RDO.DESC_GEMEOS || {}, tol = RDO.DESC_TOL || (q => 1);
+    const chave = x => x.data + '|' + x.turno + '|' + (gem[x.linha] ? [x.linha, gem[x.linha]].sort().join('~') : x.linha);
+    const vistos = {}, divesc = [];
+    (S.desc || []).filter(x => x.linha && +x.qtd > 0).slice().sort((a, b) => String(a.lancadoEm || '9999').localeCompare(String(b.lancadoEm || '9999'))).forEach(x => {
+      const ch = chave(x);
+      if (vistos[ch] && Math.abs(vistos[ch] - +x.qtd) > tol(x.qtd)) divesc.push(`${esc(x.causa || x.linha)} ${RDO.dm(x.data)} ${x.turno}: ${N(vistos[ch], 1)} × ${N(+x.qtd, 1)} kg`);
+      else if (!vistos[ch]) vistos[ch] = +x.qtd;
+    });
+    for (const r of (lst || [])) {
+      const nq = r.naoQualidade || {};
+      for (const x of (r._descMan || [])) {
+        if (!x.linha) continue;
+        const g = gem[x.linha];
+        const cR = RDO.isNum(nq[x.linha]) && nq[x.linha] > 0 ? x.linha : (g && RDO.isNum(nq[g]) && nq[g] > 0 ? g : null);
+        if (cR && Math.abs(+nq[cR] - +x.qtd) > tol(x.qtd)) divesc.push(`${esc(x.causa || x.linha)} ${RDO.dm(x.data)} ${x.turno}: RDO tem ${N(+nq[cR], 1)} × lançado ${N(+x.qtd, 1)} kg`);
+      }
+    }
+    if (!divesc.length) return '';
+    return `<div class="aviso-desc reveal">${ic('alvo')}<div><b>Atenção: ${divesc.length} descarte(s) com valores diferentes entre as fontes.</b><br>Contei uma vez só (vale o primeiro lançado). Confira com o PCP: ${divesc.slice(0, 5).join(' · ')}${divesc.length > 5 ? '…' : ''}</div></div>`;
+  } catch (e) { return ''; }
+}
+
+/* Auto-limpeza: cópias locais já cobertas pela nuvem ou pelo próprio RDO (mesmo dia/turno,
+   mesma linha ou linha gêmea, valor igual) vão para um backup recuperável neste navegador
+   (store 'descBackupLimpeza') em vez de continuar somando em dobro. Divergentes e únicas
+   NÃO são tocadas. */
+function limparDescLocaisDuplicados() {
+  if (S.demo) return;
+  const dl = descLocais(); if (!dl.length) return;
+  const remotos = S.remotoDesc || [];
+  const cobre = (m) => {
+    if (!m.linha) return false;
+    const gem = RDO.DESC_GEMEOS[m.linha];
+    const ok = v => isFinite(v) && Math.abs(v - +m.qtd) <= RDO.DESC_TOL(m.qtd);
+    if (remotos.some(r => r.data === m.data && r.turno === m.turno && r.linha && (r.linha === m.linha || r.linha === gem) && ok(+r.qtd))) return true;
+    const reg = (S.regs || []).find(r => !r.demo && r.data === m.data && r.turno === m.turno);
+    const nq = reg && reg.naoQualidade ? reg.naoQualidade : {};
+    return [m.linha, gem].filter(Boolean).some(c => RDO.isNum(nq[c]) && nq[c] > 0 && ok(+nq[c]));
+  };
+  const dup = dl.filter(cobre);
+  if (!dup.length) return;
+  salvarDescLocais(dl.filter(m => !cobre(m)));
+  const bkp = store.get('descBackupLimpeza', []);
+  store.set('descBackupLimpeza', bkp.concat(dup.map(x => Object.assign({}, x, { removidoEm: agoraISO() }))));
+  if (!S._avisoLimpDesc) { S._avisoLimpDesc = true; toast(`Limpeza de descartes: ${dup.length} cópia(s) que já estavam na base foram tiradas deste aparelho (uma cópia de segurança ficou guardada neste navegador).`, 7000); }
+}
+
 function montarRegs() {
   let base;
   if (S.demo) base = demoRegs();
@@ -3077,6 +3150,7 @@ function montarRegs() {
     if (loc.length) base = RDO.upsert(base, loc).map(r => { if (loc.some(l => l.id === r.id)) r._local = true; return r; });
   }
   S.regs = base.map(r => Object.assign({}, r, { id: r.id || `${r.data}_${r.turno}` })).sort((x, y) => (x.data + x.turno).localeCompare(y.data + y.turno));
+  limparDescLocaisDuplicados();
   // descartes lançados à parte (fora do RDO)
   if (S.demo) S.desc = [];
   else {
@@ -3987,6 +4061,7 @@ function vPerdas() {
     const linD = AI.causas.filter(l => !F || (l.porItem[F] || 0) > 0.0005).slice().sort((x, y) => (F ? y.porItem[F] - x.porItem[F] : y.kg - x.kg));
     const kgF = l => F ? l.porItem[F] || 0 : l.kg;
     const totD = linD.reduce((t, l) => t + kgF(l), 0);
+    h += avisoDivergDesc(cob.lst);
     h += `<div class="desc-acao reveal"><div><b>${cob.com} de ${cob.lst.length}</b> lançamento(s) do período têm descarte apontado${cob.sem.length ? ` · <span class="c-ruim">${cob.sem.length} sem nenhum (linhas em branco no RDO?)</span>` : ''}.</div><button class="btn tinta grande" data-act="fdr-abrir" ${cob.sem.length ? `data-d="${cob.sem[cob.sem.length - 1].r.data}" data-t="${cob.sem[cob.sem.length - 1].r.turno}"` : ''}>${ic('enviar')}Lançar descartes do RDO</button></div>`;
     if (!totD) {
       h += pane('', '', `<div class="vazio-grande" style="padding:22px 10px">${ic('alvo')}<h3>Nenhum descarte apontado${F ? ' para ' + esc(RDO.ITEM[F].n.toLowerCase()) : ''} neste período</h3><p>As linhas de descarte ficam na página 2 do RDO (tabela “desvios de não-qualidade”). Se vieram em branco no PDF, lance os números pelo botão acima: o sistema pede linha por linha, com exemplo, e grava na base da nuvem.</p></div>`);
@@ -5899,7 +5974,16 @@ async function planEnviar(lista, desde, ate, nome) {
   const atual = (S.desc || []).filter(d => d.data >= desde && d.data <= ate);
   const igual = (a, b) => a && b && +a.qtd === +b.qtd && a.alvo === b.alvo && a.un === b.un && (a.lancadoPor || '') === (b.lancadoPor || '');
   const agora = agoraISO();
-  const novos = lista.filter(n => !igual(atual.find(d => d.id === n.id), n)).map(n => Object.assign({ lancadoEm: agora }, n));
+  // já coberto? mesmo id, linha gêmea na base ou linha preenchida no próprio RDO (valor igual)
+  const coberto = n => {
+    if (igual(atual.find(d => d.id === n.id), n)) return true;
+    const gem = RDO.DESC_GEMEOS[n.linha], tol = RDO.DESC_TOL(n.qtd);
+    if (gem && atual.some(x => x.linha === gem && x.data === n.data && x.turno === n.turno && Math.abs(+x.qtd - +n.qtd) <= tol)) return true;
+    const reg = (S.regs || []).find(r => !r.demo && r.data === n.data && r.turno === n.turno);
+    const nq = reg && reg.naoQualidade ? reg.naoQualidade : {};
+    return [n.linha, gem].filter(Boolean).some(c => RDO.isNum(nq[c]) && nq[c] > 0 && Math.abs(+nq[c] - +n.qtd) <= tol);
+  };
+  const novos = lista.filter(n => !coberto(n)).map(n => Object.assign({ lancadoEm: agora }, n));
   const ids = new Set(lista.map(n => n.id));
   const remover = atual.filter(d => /^planilha/.test(d.lancadoPor || '') && !ids.has(d.id) && +d.qtd > 0).map(d => d.id);
   if (!novos.length && !remover.length) return { novos: 0, removidos: 0, destino: 'nada' };
