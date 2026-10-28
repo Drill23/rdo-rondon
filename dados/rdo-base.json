@@ -1,7 +1,7 @@
 {
  "sistema": "RDO Rondon",
  "versao": 1,
- "atualizadoEm": "2026-10-28T17:26:00-03:00",
+ "atualizadoEm": "2026-10-28T17:35:00-03:00",
  "LEI_IA": "IA: antes de lançar, leia e siga a LEI DE LANÇAMENTO em INSTRUCOES_IA.md (raiz do repositório; cópia no index.html, bloco script#lei-lancamento-ia). Mantenha esta chave.",
  "registros": [
   {
@@ -3899,9 +3899,15 @@
    },
    "naoQualidade": {
     "4": 76,
-    "4.1": 76
+    "4.1": 76,
+    "2.1": 148,
+    "2.3": 1606,
+    "2.4": 50,
+    "2.6": 77,
+    "2.8": 14,
+    "2.10": 42
    },
-   "obs": "Versao FINAL T1 27/10. Fonte: PDF 'RDORONDON 27.10.pdf' (738.446 B) encaminhado pelo Adriano 27/10 20:07 via WhatsApp (recebido do Marcinho). TURNO=1T lido dentro do arquivo. Fechamento evidenciado no proprio relatorio: janela AS 03:30 -> AT 13:18 (9,8h padrao T1), AV/AX 7,7h, PP05 Termino de Abate 8 min preenchido, relatorio completo com OEE 90,03%. Candidato passou por QC independente (v3): correcao de coluna no DIF - valores 2.1 130 / 2.3 1501 / 2.4 13 / 2.6 21 / 2.8 24 / 2.10 68 pertencem a 26-out (ja lancados em 2026-10-26_T1); em 27-out DIF 2.x EM BRANCO (nao zero) - descartes aguardam fonte da planilha. Correcao pos-QC de leitura propria: AA (Asa apontado) 27-out = 636 cxs (26-out 540; acum 1.176 confere 540+636). nq so mortalidade no transporte 76 und (0,146% < meta 0,18%). R01 10 min Reducao-Falha Operacional. PP: PP04 Pausa Ergonomica 60 + PP05 8 + PP06 Parada de Refeicao 60 = 128 min; AU impresso 2,1h (mismatch centesimal registrado como impresso). V (6.786) impresso nao bate centesimalmente com R/AX (provavel arredondamento interno de horas) - como impresso. Rendimento de cortes (formula do site, S=156.372): coxa +2.539 (+127 cx), coracao +130 (+6), coxinha +142 (+7), meio +88 (+4), ponta +28 (+1); file -2.249 (-112), pes -666 (-42), figado -267 (-13), moela -141 (-7); saldo -396 kg. REVISAO HISTORICA PENDENTE (todo separado, historico NAO alterado): a coluna 26-out DESTE arquivo traz rendimento de cortes revisado pelo PCP (BD 26,169 / BE 24,876 / BG 4,600 / BH 2,800 / BI 0,930 / BP 14,005 / BA 79,355 / BB 20,645) diferente do registro 2026-10-26_T1 lancado (BD 26,087 / BE 24,799 / BG 4,586 / BH 2,791 / BI 0,927 / BP 13,962 / BA 79,126 / BB 20,874); BL 1,605 / BM 1,229 / BN 0,650 / BO 2,491 iguais. R03 467 min 26-out confirmado neste arquivo (R02 vazio) - registro anterior correto. Array de descartes do painel NAO alterado."
+   "obs": "Versao FINAL T1 27/10. Fonte: PDF 'RDORONDON 27.10.pdf' (738.446 B) encaminhado pelo Adriano 27/10 20:07 via WhatsApp (recebido do Marcinho). TURNO=1T lido dentro do arquivo. Fechamento evidenciado no proprio relatorio: janela AS 03:30 -> AT 13:18 (9,8h padrao T1), AV/AX 7,7h, PP05 Termino de Abate 8 min preenchido, relatorio completo com OEE 90,03%. Candidato passou por QC independente (v3): correcao de coluna no DIF - valores 2.1 130 / 2.3 1501 / 2.4 13 / 2.6 21 / 2.8 24 / 2.10 68 pertencem a 26-out (ja lancados em 2026-10-26_T1); em 27-out DIF 2.x EM BRANCO (nao zero) - descartes aguardam fonte da planilha. Correcao pos-QC de leitura propria: AA (Asa apontado) 27-out = 636 cxs (26-out 540; acum 1.176 confere 540+636). nq so mortalidade no transporte 76 und (0,146% < meta 0,18%). R01 10 min Reducao-Falha Operacional. PP: PP04 Pausa Ergonomica 60 + PP05 8 + PP06 Parada de Refeicao 60 = 128 min; AU impresso 2,1h (mismatch centesimal registrado como impresso). V (6.786) impresso nao bate centesimalmente com R/AX (provavel arredondamento interno de horas) - como impresso. Rendimento de cortes (formula do site, S=156.372): coxa +2.539 (+127 cx), coracao +130 (+6), coxinha +142 (+7), meio +88 (+4), ponta +28 (+1); file -2.249 (-112), pes -666 (-42), figado -267 (-13), moela -141 (-7); saldo -396 kg. REVISAO HISTORICA PENDENTE (todo separado, historico NAO alterado): a coluna 26-out DESTE arquivo traz rendimento de cortes revisado pelo PCP (BD 26,169 / BE 24,876 / BG 4,600 / BH 2,800 / BI 0,930 / BP 14,005 / BA 79,355 / BB 20,645) diferente do registro 2026-10-26_T1 lancado (BD 26,087 / BE 24,799 / BG 4,586 / BH 2,791 / BI 0,927 / BP 13,962 / BA 79,126 / BB 20,874); BL 1,605 / BM 1,229 / BN 0,650 / BO 2,491 iguais. R03 467 min 26-out confirmado neste arquivo (R02 vazio) - registro anterior correto. Array de descartes do painel NAO alterado. | COMPLEMENTO 28/10 17:35 (QC independente aprovado): DIF 27-out preenchidos retroativamente pelo PCP no PDF 'RDORONDON 28.10 - 1º Turno.pdf' (743.501 B, postado por Marcinho no grupo PCP 28/10 17:02): 2.1 Asa 148 kg, 2.3 Dorso 1.606 kg, 2.4 Coxa 50 kg, 2.6 Pes/Pata 77 kg, 2.8 Carcacas DIF 14 uni, 2.10 Carcacas DIF 42 kg. No PDF-fonte original deste registro estavam em branco. Alinhamento de coluna conferido por coordenadas bbox. Sem lancamento correspondente no array descartes do painel (sem dupla contagem). Demais campos, v, metas, PP, P, R e historico de outros dias INALTERADOS."
   },
   {
    "id": "2026-10-27_T2",
