@@ -1,7 +1,7 @@
 {
  "sistema": "RDO Rondon",
  "versao": 1,
- "atualizadoEm": "2026-10-27T20:12:00-03:00",
+ "atualizadoEm": "2026-10-27T21:11:00-03:00",
  "LEI_IA": "IA: antes de lançar, leia e siga a LEI DE LANÇAMENTO em INSTRUCOES_IA.md (raiz do repositório; cópia no index.html, bloco script#lei-lancamento-ia). Mantenha esta chave.",
  "registros": [
   {
@@ -3590,7 +3590,7 @@
     "AC1": 45,
     "AC2": 148,
     "AC3": 85,
-    "AH": 5526,
+    "AH": 5949,
     "AI": 112798,
     "AJ": 81.53,
     "AK": 88.02,
@@ -3606,25 +3606,27 @@
     "AX": 7.8,
     "AY": 7.6,
     "AZ": 0.2,
-    "BA": 79.126,
-    "BB": 20.874,
-    "BD": 26.087,
-    "BE": 24.799,
-    "BG": 4.586,
-    "BH": 2.791,
-    "BI": 0.927,
+    "BA": 79.355,
+    "BB": 20.645,
+    "BD": 26.169,
+    "BE": 24.876,
+    "BG": 4.6,
+    "BH": 2.8,
+    "BI": 0.93,
     "BL": 1.605,
     "BM": 1.229,
     "BN": 0.65,
     "BO": 2.491,
-    "BP": 13.962,
+    "BP": 14.005,
     "DORSO": 0,
     "BQ": 0,
     "BT": 100,
     "BU": 97.27,
     "BV": 81.53,
     "BW": 97.27,
-    "BX": 79.3
+    "BX": 79.3,
+    "AG": 423,
+    "AG1": 423
    },
    "metas": {
     "5": 3,
@@ -3675,7 +3677,7 @@
     "2.10": 68,
     "4.1": 106
    },
-   "obs": "Lancado 26/10 17:16 do PDF oficial RDORONDON 26.10 1º Turno.pdf postado pelo Marcinho no grupo PCP 17:05 (716 KB, 3 paginas). AT=13:20 confirma turno completo. Semana 44 (25-31/out): colunas anteriores a 26-out nao carregam dias 21-23/10 - checagem de revisao desses dias fica para o proximo PDF (27/10 traz 26-out como historico). DOM 25/10 em branco (sem turno domingo, consistente com confirmacao do Adriano de sem abate no fim de semana). DIF 26-out PREENCHIDO no proprio dia: Asa 130 kg, Dorso 1.501 kg, Coxa 13 kg, Pes/Pata 21 kg, Carcacas DIF 24 uni / 68 kg (2.2 File, 2.5 Papo Cheio, 2.7 e 2.9 Pre-Inspecao em branco - nao zero) - lancados em naoQualidade como fonte RDO (primeira fonte do dia; o painel deduplica contra a planilha do PCP sem somar duas vezes). Array de descartes do painel NAO alterado. PCC 1B (3.x) e contaminacoes (5.x) em branco. R03 (Reducao - Defeito Mecanico) 467 min registrado como impresso (desempenho BU=97,27 nao reflete esse volume - obs interna). PP05 26-out em branco."
+   "obs": "Lancado 26/10 17:16 do PDF oficial RDORONDON 26.10 1º Turno.pdf postado pelo Marcinho no grupo PCP 17:05 (716 KB, 3 paginas). AT=13:20 confirma turno completo. Semana 44 (25-31/out): colunas anteriores a 26-out nao carregam dias 21-23/10 - checagem de revisao desses dias fica para o proximo PDF (27/10 traz 26-out como historico). DOM 25/10 em branco (sem turno domingo, consistente com confirmacao do Adriano de sem abate no fim de semana). DIF 26-out PREENCHIDO no proprio dia: Asa 130 kg, Dorso 1.501 kg, Coxa 13 kg, Pes/Pata 21 kg, Carcacas DIF 24 uni / 68 kg (2.2 File, 2.5 Papo Cheio, 2.7 e 2.9 Pre-Inspecao em branco - nao zero) - lancados em naoQualidade como fonte RDO (primeira fonte do dia; o painel deduplica contra a planilha do PCP sem somar duas vezes). Array de descartes do painel NAO alterado. PCC 1B (3.x) e contaminacoes (5.x) em branco. R03 (Reducao - Defeito Mecanico) 467 min registrado como impresso (desempenho BU=97,27 nao reflete esse volume - obs interna). PP05 26-out em branco. | REVISAO PCP APLICADA 27/10 21:11 (aprovada pelo Adriano: 'Sim pode atualizar se ele revisou'): repostagem Karol 27/10 06:00 no grupo PCP (734.018 B, SHA-256 validado) e coluna 26-out do 'RDORONDON 27.10.pdf' — BD 26,087>26,169 / BE 24,799>24,876 / BG 4,586>4,600 / BH 2,791>2,800 / BI 0,927>0,930 / BP 13,962>14,005 / BA 79,126>79,355 / BB 20,874>20,645 / AG branco>423 / AG.1 branco>423 / AH 5.526>5.949 (AH passa a igualar AQ 5.949). BL/BM/BN/BO, demais volumes, tempos, indicadores e nq inalterados. Versao original (Marcinho 26/10 17:05, 733.457 B) conferia 1:1 com o lancamento original. Saldo dos 9 itens: -3.036 > -2.782 kg. Candidato v2 com QC independente aprovado antes do commit."
   },
   {
    "id": "2026-10-26_T2",
