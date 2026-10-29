@@ -6736,6 +6736,1698 @@
     "S": 85662,
     "U": 3.033
    }
+  },
+  {
+   "baseAbate": "parcial",
+   "data": "2026-10-28",
+   "fingerprint": "391fdbdad628d80a",
+   "fonte": "PDF Adriano 29/10 00:39 file-ced01716.pdf; corte AT 17:15",
+   "id": "prev-2026-10-28-T2-391fdbdad628d80a",
+   "metas": {
+    "BA": 83.16,
+    "BD": 26.5,
+    "BE": 26.5,
+    "BG": 4.6,
+    "BH": 2.8,
+    "BI": 0.93,
+    "BL": 1.6,
+    "BM": 1.1,
+    "BN": 0.48,
+    "BO": 2.85,
+    "BP": 15,
+    "DORSO": 0
+   },
+   "previsao": {
+    "calculadaEm": "2026-10-29T00:42:04-03:00",
+    "condicao": "Projeção condicionada à continuidade do processo, ao mix e ao apontamento, sem novas quebras, paradas ou alterações relevantes. Faixas e chances são estimativas empíricas; não são garantia.",
+    "data": "2026-10-28",
+    "inputFingerprint": "391fdbdad628d80a",
+    "itens": [
+     {
+      "c": "BD",
+      "caixas": 2529.3892663890515,
+      "chanceMeta": 0.2647058823529412,
+      "emCalibracao": false,
+      "kg": 50587.78532778103,
+      "max": 27.12915635458997,
+      "meta": 26.5,
+      "min": 25.303339651784572,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Coxa/sobrecoxa",
+      "pesoCaixa": 20,
+      "previa": 26.403,
+      "rendimento": 26.21624800318727,
+      "saldoKg": -547.5377368777708,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-20",
+        "distancia": 0.06141202300200463,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-07",
+        "distancia": 0.23974343474358503,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-23",
+        "distancia": 0.3440049929831902,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-19",
+        "distancia": 0.4316344861481488,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-06",
+        "distancia": 0.48495811413317585,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BE",
+      "caixas": 2516.681399580123,
+      "chanceMeta": 0.2647058823529412,
+      "emCalibracao": false,
+      "kg": 50333.627991602465,
+      "max": 28.376637566250334,
+      "meta": 26.5,
+      "min": 23.79243312059643,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Filé",
+      "pesoCaixa": 20,
+      "previa": 23.559,
+      "rendimento": 26.084535343423383,
+      "saldoKg": -801.6950730563335,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-20",
+        "distancia": 0.06141202300200463,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-07",
+        "distancia": 0.23974343474358503,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-23",
+        "distancia": 0.3440049929831902,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-19",
+        "distancia": 0.4316344861481488,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-06",
+        "distancia": 0.48495811413317585,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BG",
+      "caixas": 454.38315302666206,
+      "chanceMeta": 0.8529411764705882,
+      "emCalibracao": false,
+      "kg": 9087.66306053324,
+      "max": 5.064089834560916,
+      "meta": 4.6,
+      "min": 4.354959725353614,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Coxinha da asa",
+      "pesoCaixa": 20,
+      "previa": 4.686,
+      "rendimento": 4.709524779957265,
+      "saldoKg": 211.34283044152576,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-20",
+        "distancia": 0.06141202300200463,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-07",
+        "distancia": 0.23974343474358503,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-23",
+        "distancia": 0.3440049929831902,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-19",
+        "distancia": 0.4316344861481488,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-06",
+        "distancia": 0.48495811413317585,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BH",
+      "caixas": 276.6020565176355,
+      "chanceMeta": 0.8529411764705882,
+      "emCalibracao": false,
+      "kg": 5532.04113035271,
+      "max": 3.082701032769864,
+      "meta": 2.8,
+      "min": 2.6510689394654725,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Meio da asa",
+      "pesoCaixa": 20,
+      "previa": 2.853,
+      "rendimento": 2.866884986117668,
+      "saldoKg": 129.06359899253547,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-20",
+        "distancia": 0.06141202300200463,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-07",
+        "distancia": 0.23974343474358503,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-23",
+        "distancia": 0.3440049929831902,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-19",
+        "distancia": 0.4316344861481488,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-06",
+        "distancia": 0.48495811413317585,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BI",
+      "caixas": 91.85287391611833,
+      "chanceMeta": 0.8529411764705882,
+      "emCalibracao": false,
+      "kg": 1837.0574783223665,
+      "max": 1.0242699499578738,
+      "meta": 0.93,
+      "min": 0.8797768129416592,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Ponta da asa",
+      "pesoCaixa": 20,
+      "previa": 0.947,
+      "rendimento": 0.9520233814497664,
+      "saldoKg": 42.49708397773666,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-20",
+        "distancia": 0.06141202300200463,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-07",
+        "distancia": 0.23974343474358503,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-23",
+        "distancia": 0.3440049929831902,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-19",
+        "distancia": 0.4316344861481488,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-06",
+        "distancia": 0.48495811413317585,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BL",
+      "caixas": 141.835314699038,
+      "chanceMeta": 0.46875,
+      "emCalibracao": false,
+      "kg": 2836.70629398076,
+      "max": 1.9844410713434928,
+      "meta": 1.6,
+      "min": 0.9557072365272492,
+      "nCalibracao": 15,
+      "nCasos": 15,
+      "nHistorico": 17,
+      "nivelFaixa": 0.9,
+      "nome": "Fígado",
+      "pesoCaixa": 20,
+      "previa": 1.215,
+      "rendimento": 1.470074153935371,
+      "saldoKg": -250.7094382250542,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-20",
+        "distancia": 0.06141202300200463,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-07",
+        "distancia": 0.23974343474358503,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-23",
+        "distancia": 0.3440049929831902,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-19",
+        "distancia": 0.4316344861481488,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-08",
+        "distancia": 0.6292414074599928,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BM",
+      "caixas": 109.48425950761968,
+      "chanceMeta": 0.38235294117647056,
+      "emCalibracao": false,
+      "kg": 2189.6851901523937,
+      "max": 1.375579129443243,
+      "meta": 1.1,
+      "min": 0.8939541036084304,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Moela",
+      "pesoCaixa": 20,
+      "previa": 1.17,
+      "rendimento": 1.1347666165258363,
+      "saldoKg": 67.08687426089632,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-20",
+        "distancia": 0.06141202300200463,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-07",
+        "distancia": 0.23974343474358503,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-23",
+        "distancia": 0.3440049929831902,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-19",
+        "distancia": 0.4316344861481488,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-06",
+        "distancia": 0.48495811413317585,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BN",
+      "caixas": 49.91150201632891,
+      "chanceMeta": 0.6764705882352942,
+      "emCalibracao": false,
+      "kg": 998.2300403265782,
+      "max": 0.8374703186142526,
+      "meta": 0.48,
+      "min": 0.197160714623,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Coração",
+      "pesoCaixa": 20,
+      "previa": 0.36,
+      "rendimento": 0.5173155166186263,
+      "saldoKg": 72.00532066483399,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-20",
+        "distancia": 0.06141202300200463,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-07",
+        "distancia": 0.23974343474358503,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-23",
+        "distancia": 0.3440049929831902,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-19",
+        "distancia": 0.4316344861481488,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-06",
+        "distancia": 0.48495811413317585,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BO",
+      "caixas": 276.4454790819889,
+      "chanceMeta": 0.029411764705882353,
+      "emCalibracao": false,
+      "kg": 4423.127665311822,
+      "max": 3.010223371498653,
+      "meta": 2.85,
+      "min": 1.574196012438817,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Pés",
+      "pesoCaixa": 16,
+      "previa": 2.38,
+      "rendimento": 2.292209691968735,
+      "saldoKg": -1076.3316076797846,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-20",
+        "distancia": 0.06141202300200463,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-07",
+        "distancia": 0.23974343474358503,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-23",
+        "distancia": 0.3440049929831902,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-19",
+        "distancia": 0.4316344861481488,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-06",
+        "distancia": 0.48495811413317585,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "CMS",
+      "caixas": null,
+      "chanceMeta": 0.8529411764705882,
+      "emCalibracao": false,
+      "kg": 31028.8831192749,
+      "max": 18.279553040468517,
+      "meta": 15,
+      "min": 13.880814915789802,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "CMS + dorso",
+      "pesoCaixa": null,
+      "previa": 15.050999999999998,
+      "rendimento": 16.08018397812916,
+      "saldoKg": 2084.3606298453933,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-20",
+        "distancia": 0.06141202300200463,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-07",
+        "distancia": 0.23974343474358503,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-23",
+        "distancia": 0.3440049929831902,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-19",
+        "distancia": 0.4316344861481488,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-06",
+        "distancia": 0.48495811413317585,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BQ",
+      "caixas": 0,
+      "chanceMeta": 0.03125,
+      "emCalibracao": false,
+      "kg": 0,
+      "max": 0.004,
+      "meta": 0.8,
+      "min": 0,
+      "nCalibracao": 15,
+      "nCasos": 15,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Sambiquira",
+      "pesoCaixa": 20,
+      "previa": null,
+      "rendimento": 0,
+      "saldoKg": -1543.7078661029072,
+      "semApontamento": true,
+      "similares": []
+     }
+    ],
+    "metodo": "Combinação regularizada de composição, regressão e memória de casos; dados anteriores do mesmo turno.",
+    "nHistorico": 18,
+    "status": "estimativa",
+    "turno": "T2",
+    "versao": "previas-1.0.0",
+    "volume": {
+     "aves": 57383,
+     "avesEstimadasAteAgora": 19887,
+     "avisos": [
+      "Q é programação; pode mudar antes do fechamento."
+     ],
+     "fonte": "Q da prévia calibrado pelos fechamentos anteriores",
+     "kg": 192963.4832628634,
+     "maxKg": 230040.26846822703,
+     "minKg": 155886.6980574997,
+     "pesoMedio": 3.3627028229167624
+    }
+   },
+   "recebidoEm": "2026-10-29T00:42:04-03:00",
+   "registroId": "2026-10-28_T2",
+   "retrospectiva": false,
+   "tipo": "previa",
+   "turno": "T2",
+   "v": {
+    "AI": 52914,
+    "AS": "14:00",
+    "AT": "17:15",
+    "BA": 78.622,
+    "BD": 26.403,
+    "BE": 23.559,
+    "BG": 4.686,
+    "BH": 2.853,
+    "BI": 0.947,
+    "BL": 1.215,
+    "BM": 1.17,
+    "BN": 0.36,
+    "BO": 2.38,
+    "BP": 4.848,
+    "DORSO": 10.203,
+    "N": 31000,
+    "Q": 57900,
+    "R": 19887,
+    "S": 66693,
+    "U": 3.354
+   }
+  },
+  {
+   "baseAbate": "parcial",
+   "data": "2026-10-28",
+   "fingerprint": "14e880d78c42011b",
+   "fonte": "PDF Adriano 29/10 00:39 file-4b515287.pdf; corte AT 19:00",
+   "id": "prev-2026-10-28-T2-14e880d78c42011b",
+   "metas": {
+    "BA": 83.16,
+    "BD": 26.5,
+    "BE": 26.5,
+    "BG": 4.6,
+    "BH": 2.8,
+    "BI": 0.93,
+    "BL": 1.6,
+    "BM": 1.1,
+    "BN": 0.48,
+    "BO": 2.85,
+    "BP": 15,
+    "DORSO": 0
+   },
+   "previsao": {
+    "calculadaEm": "2026-10-29T00:42:04-03:00",
+    "condicao": "Projeção condicionada à continuidade do processo, ao mix e ao apontamento, sem novas quebras, paradas ou alterações relevantes. Faixas e chances são estimativas empíricas; não são garantia.",
+    "data": "2026-10-28",
+    "inputFingerprint": "14e880d78c42011b",
+    "itens": [
+     {
+      "c": "BD",
+      "caixas": 2516.394526917128,
+      "chanceMeta": 0.2058823529411765,
+      "emCalibracao": false,
+      "kg": 50327.890538342566,
+      "max": 27.085393510912528,
+      "meta": 26.5,
+      "min": 25.25957680810713,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Coxa/sobrecoxa",
+      "pesoCaixa": 20,
+      "previa": 26.542,
+      "rendimento": 26.17248515950983,
+      "saldoKg": -629.7885333171296,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-06",
+        "distancia": 0.03787110763148206,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-20",
+        "distancia": 0.040467697290127815,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-19",
+        "distancia": 0.21715768420381315,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-08",
+        "distancia": 0.3190251191124818,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-15",
+        "distancia": 0.34185327814287897,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BE",
+      "caixas": 2525.88950575183,
+      "chanceMeta": 0.38235294117647056,
+      "emCalibracao": false,
+      "kg": 50517.790115036594,
+      "max": 28.56334264109405,
+      "meta": 26.5,
+      "min": 23.979138195440147,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Filé",
+      "pesoCaixa": 20,
+      "previa": 24.462,
+      "rendimento": 26.271240418267094,
+      "saldoKg": -439.88895662310665,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-06",
+        "distancia": 0.03787110763148206,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-20",
+        "distancia": 0.040467697290127815,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-19",
+        "distancia": 0.21715768420381315,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-08",
+        "distancia": 0.3190251191124818,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-15",
+        "distancia": 0.34185327814287897,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BG",
+      "caixas": 448.1742785365036,
+      "chanceMeta": 0.7352941176470589,
+      "emCalibracao": false,
+      "kg": 8963.485570730072,
+      "max": 5.01593056323121,
+      "meta": 4.6,
+      "min": 4.306800454023907,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Coxinha da asa",
+      "pesoCaixa": 20,
+      "previa": 4.57,
+      "rendimento": 4.661365508627559,
+      "saldoKg": 118.00165640423847,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-06",
+        "distancia": 0.03787110763148206,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-20",
+        "distancia": 0.040467697290127815,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-19",
+        "distancia": 0.21715768420381315,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-08",
+        "distancia": 0.3190251191124818,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-15",
+        "distancia": 0.34185327814287897,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BH",
+      "caixas": 272.810433401094,
+      "chanceMeta": 0.7352941176470589,
+      "emCalibracao": false,
+      "kg": 5456.20866802188,
+      "max": 3.0532594376521955,
+      "meta": 2.8,
+      "min": 2.621627344347804,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Meio da asa",
+      "pesoCaixa": 20,
+      "previa": 2.782,
+      "rendimento": 2.837443391,
+      "saldoKg": 72.00106799745937,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-06",
+        "distancia": 0.03787110763148206,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-20",
+        "distancia": 0.040467697290127815,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-19",
+        "distancia": 0.21715768420381315,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-08",
+        "distancia": 0.3190251191124818,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-15",
+        "distancia": 0.34185327814287897,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BI",
+      "caixas": 90.6095108330308,
+      "chanceMeta": 0.7352941176470589,
+      "emCalibracao": false,
+      "kg": 1812.190216660616,
+      "max": 1.0146568512443657,
+      "meta": 0.93,
+      "min": 0.870163714228151,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Ponta da asa",
+      "pesoCaixa": 20,
+      "previa": 0.924,
+      "rendimento": 0.9424102827362584,
+      "saldoKg": 23.864120938219052,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-06",
+        "distancia": 0.03787110763148206,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-20",
+        "distancia": 0.040467697290127815,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-19",
+        "distancia": 0.21715768420381315,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-08",
+        "distancia": 0.3190251191124818,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-15",
+        "distancia": 0.34185327814287897,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BL",
+      "caixas": 135.3245389015629,
+      "chanceMeta": 0.40625,
+      "emCalibracao": false,
+      "kg": 2706.490778031258,
+      "max": 1.9218487125850297,
+      "meta": 1.6,
+      "min": 0.8931148777687858,
+      "nCalibracao": 15,
+      "nCasos": 15,
+      "nHistorico": 17,
+      "nivelFaixa": 0.9,
+      "nome": "Fígado",
+      "pesoCaixa": 20,
+      "previa": 0.808,
+      "rendimento": 1.4074817951769076,
+      "saldoKg": -370.1992791255545,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-20",
+        "distancia": 0.040467697290127815,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-19",
+        "distancia": 0.21715768420381315,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-08",
+        "distancia": 0.3190251191124818,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-15",
+        "distancia": 0.34185327814287897,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-23",
+        "distancia": 0.3553289810229985,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BM",
+      "caixas": 108.60375788692616,
+      "chanceMeta": 0.38235294117647056,
+      "emCalibracao": false,
+      "kg": 2172.075157738523,
+      "max": 1.3703771384790728,
+      "meta": 1.1,
+      "min": 0.8887521126442606,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Moela",
+      "pesoCaixa": 20,
+      "previa": 1.157,
+      "rendimento": 1.1295646255616667,
+      "saldoKg": 56.85074344321487,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-06",
+        "distancia": 0.03787110763148206,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-20",
+        "distancia": 0.040467697290127815,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-19",
+        "distancia": 0.21715768420381315,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-08",
+        "distancia": 0.3190251191124818,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-15",
+        "distancia": 0.34185327814287897,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BN",
+      "caixas": 51.42924023966075,
+      "chanceMeta": 0.7941176470588235,
+      "emCalibracao": false,
+      "kg": 1028.584804793215,
+      "max": 0.8550594095757537,
+      "meta": 0.48,
+      "min": 0.21474980558450107,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Coração",
+      "pesoCaixa": 20,
+      "previa": 0.439,
+      "rendimento": 0.5349046075801274,
+      "saldoKg": 105.57778764617152,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-06",
+        "distancia": 0.03787110763148206,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-20",
+        "distancia": 0.040467697290127815,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-19",
+        "distancia": 0.21715768420381315,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-08",
+        "distancia": 0.3190251191124818,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-15",
+        "distancia": 0.34185327814287897,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BO",
+      "caixas": 279.18650773725614,
+      "chanceMeta": 0.029411764705882353,
+      "emCalibracao": false,
+      "kg": 4466.984123796098,
+      "max": 3.0410213485827136,
+      "meta": 2.85,
+      "min": 1.6049939895228775,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Pés",
+      "pesoCaixa": 16,
+      "previa": 2.465,
+      "rendimento": 2.323007669052795,
+      "saldoKg": -1013.370040514473,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-06",
+        "distancia": 0.03787110763148206,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-20",
+        "distancia": 0.040467697290127815,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-19",
+        "distancia": 0.21715768420381315,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-08",
+        "distancia": 0.3190251191124818,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-15",
+        "distancia": 0.34185327814287897,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "CMS",
+      "caixas": null,
+      "chanceMeta": 0.8529411764705882,
+      "emCalibracao": false,
+      "kg": 31356.29214340211,
+      "max": 18.505875891891712,
+      "meta": 15,
+      "min": 14.107137767212995,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "CMS + dorso",
+      "pesoCaixa": null,
+      "previa": 15.805,
+      "rendimento": 16.306506829552355,
+      "saldoKg": 2512.322857556999,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-06",
+        "distancia": 0.03787110763148206,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-20",
+        "distancia": 0.040467697290127815,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-19",
+        "distancia": 0.21715768420381315,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-08",
+        "distancia": 0.3190251191124818,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-15",
+        "distancia": 0.34185327814287897,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BQ",
+      "caixas": 0,
+      "chanceMeta": 0.03125,
+      "emCalibracao": false,
+      "kg": 0,
+      "max": 0.004,
+      "meta": 0.8,
+      "min": 0,
+      "nCalibracao": 15,
+      "nCasos": 15,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Sambiquira",
+      "pesoCaixa": 20,
+      "previa": null,
+      "rendimento": 0,
+      "saldoKg": -1538.3450285784058,
+      "semApontamento": true,
+      "similares": []
+     }
+    ],
+    "metodo": "Combinação regularizada de composição, regressão e memória de casos; dados anteriores do mesmo turno.",
+    "nHistorico": 18,
+    "status": "estimativa",
+    "turno": "T2",
+    "versao": "previas-1.0.0",
+    "volume": {
+     "aves": 57383,
+     "avesEstimadasAteAgora": 30148,
+     "avisos": [
+      "Q é programação; pode mudar antes do fechamento."
+     ],
+     "fonte": "Q da prévia calibrado pelos fechamentos anteriores",
+     "kg": 192293.12857230075,
+     "maxKg": 229241.109112382,
+     "minKg": 155345.14803221947,
+     "pesoMedio": 3.35102080115703
+    }
+   },
+   "recebidoEm": "2026-10-29T00:42:04-03:00",
+   "registroId": "2026-10-28_T2",
+   "retrospectiva": false,
+   "tipo": "previa",
+   "turno": "T2",
+   "v": {
+    "AI": 80915,
+    "AS": "14:00",
+    "AT": "19:00",
+    "BA": 79.953,
+    "BD": 26.542,
+    "BE": 24.462,
+    "BG": 4.57,
+    "BH": 2.782,
+    "BI": 0.924,
+    "BL": 0.808,
+    "BM": 1.157,
+    "BN": 0.439,
+    "BO": 2.465,
+    "BP": 4.862,
+    "DORSO": 10.943,
+    "N": 40000,
+    "Q": 57900,
+    "R": 30148,
+    "S": 100302,
+    "U": 3.327
+   }
+  },
+  {
+   "baseAbate": "parcial",
+   "data": "2026-10-28",
+   "fingerprint": "eb64b42d20d5f2bd",
+   "fonte": "PDF Adriano 29/10 00:39 file-c329d240.pdf; corte AT 21:44",
+   "id": "prev-2026-10-28-T2-eb64b42d20d5f2bd",
+   "metas": {
+    "BA": 83.16,
+    "BD": 26.5,
+    "BE": 26.5,
+    "BG": 4.6,
+    "BH": 2.8,
+    "BI": 0.93,
+    "BL": 1.6,
+    "BM": 1.1,
+    "BN": 0.48,
+    "BO": 2.85,
+    "BP": 15,
+    "DORSO": 0
+   },
+   "previsao": {
+    "calculadaEm": "2026-10-29T00:42:04-03:00",
+    "condicao": "Projeção condicionada à continuidade do processo, ao mix e ao apontamento, sem novas quebras, paradas ou alterações relevantes. Faixas e chances são estimativas empíricas; não são garantia.",
+    "data": "2026-10-28",
+    "inputFingerprint": "eb64b42d20d5f2bd",
+    "itens": [
+     {
+      "c": "BD",
+      "caixas": 2479.1679749140417,
+      "chanceMeta": 0.08823529411764706,
+      "emCalibracao": false,
+      "kg": 49583.359498280835,
+      "max": 26.90364985374871,
+      "meta": 26.5,
+      "min": 25.077833150943313,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Coxa/sobrecoxa",
+      "pesoCaixa": 20,
+      "previa": 25.64,
+      "rendimento": 25.99074150234601,
+      "saldoKg": -971.5285408249276,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-15",
+        "distancia": 0.03261993247810208,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-20",
+        "distancia": 0.0373507015817861,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-08",
+        "distancia": 0.1097449370310225,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-09",
+        "distancia": 0.14550704565081538,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-22",
+        "distancia": 0.15905151706713722,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BE",
+      "caixas": 2496.3546410027075,
+      "chanceMeta": 0.2647058823529412,
+      "emCalibracao": false,
+      "kg": 49927.092820054146,
+      "max": 28.46302280142661,
+      "meta": 26.5,
+      "min": 23.878818355772708,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Filé",
+      "pesoCaixa": 20,
+      "previa": 23.868,
+      "rendimento": 26.17092057859966,
+      "saldoKg": -627.7952190516196,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-15",
+        "distancia": 0.03261993247810208,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-20",
+        "distancia": 0.0373507015817861,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-08",
+        "distancia": 0.1097449370310225,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-09",
+        "distancia": 0.14550704565081538,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-22",
+        "distancia": 0.15905151706713722,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BG",
+      "caixas": 445.0616304055924,
+      "chanceMeta": 0.7352941176470589,
+      "emCalibracao": false,
+      "kg": 8901.232608111848,
+      "max": 5.020437599559176,
+      "meta": 4.6,
+      "min": 4.311307490351873,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Coxinha da asa",
+      "pesoCaixa": 20,
+      "previa": 4.53,
+      "rendimento": 4.6658725449555245,
+      "saldoKg": 125.6671371727366,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-15",
+        "distancia": 0.03261993247810208,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-20",
+        "distancia": 0.0373507015817861,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-08",
+        "distancia": 0.1097449370310225,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-09",
+        "distancia": 0.14550704565081538,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-22",
+        "distancia": 0.15905151706713722,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BH",
+      "caixas": 270.8982308820971,
+      "chanceMeta": 0.7352941176470589,
+      "emCalibracao": false,
+      "kg": 5417.964617641942,
+      "max": 3.055819613793932,
+      "meta": 2.8,
+      "min": 2.624187520489541,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Meio da asa",
+      "pesoCaixa": 20,
+      "previa": 2.757,
+      "rendimento": 2.8400035671417365,
+      "saldoKg": 76.31607011378675,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-15",
+        "distancia": 0.03261993247810208,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-20",
+        "distancia": 0.0373507015817861,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-08",
+        "distancia": 0.1097449370310225,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-09",
+        "distancia": 0.14550704565081538,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-22",
+        "distancia": 0.15905151706713722,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BI",
+      "caixas": 89.98142603986219,
+      "chanceMeta": 0.7352941176470589,
+      "emCalibracao": false,
+      "kg": 1799.6285207972437,
+      "max": 1.015580787035842,
+      "meta": 0.93,
+      "min": 0.8710876500196274,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Ponta da asa",
+      "pesoCaixa": 20,
+      "previa": 0.916,
+      "rendimento": 0.9433342185277348,
+      "saldoKg": 25.43811036824885,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-15",
+        "distancia": 0.03261993247810208,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-20",
+        "distancia": 0.0373507015817861,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-08",
+        "distancia": 0.1097449370310225,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-09",
+        "distancia": 0.14550704565081538,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-22",
+        "distancia": 0.15905151706713722,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BL",
+      "caixas": 130.84215914225854,
+      "chanceMeta": 0.34375,
+      "emCalibracao": false,
+      "kg": 2616.8431828451708,
+      "max": 1.8860709609766784,
+      "meta": 1.6,
+      "min": 0.8573371261604348,
+      "nCalibracao": 15,
+      "nCasos": 15,
+      "nHistorico": 17,
+      "nivelFaixa": 0.9,
+      "nome": "Fígado",
+      "pesoCaixa": 20,
+      "previa": 0.581,
+      "rendimento": 1.3717040435685566,
+      "saldoKg": -435.52741574234693,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-15",
+        "distancia": 0.03261993247810208,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-20",
+        "distancia": 0.0373507015817861,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-08",
+        "distancia": 0.1097449370310225,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-09",
+        "distancia": 0.14550704565081538,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-22",
+        "distancia": 0.15905151706713722,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BM",
+      "caixas": 112.99161449989408,
+      "chanceMeta": 0.7352941176470589,
+      "emCalibracao": false,
+      "kg": 2259.8322899978816,
+      "max": 1.4253776065760162,
+      "meta": 1.1,
+      "min": 0.943752580741204,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Moela",
+      "pesoCaixa": 20,
+      "previa": 1.319,
+      "rendimento": 1.18456509365861,
+      "saldoKg": 161.32750346896302,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-15",
+        "distancia": 0.03261993247810208,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-20",
+        "distancia": 0.0373507015817861,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-08",
+        "distancia": 0.1097449370310225,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-09",
+        "distancia": 0.14550704565081538,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-22",
+        "distancia": 0.15905151706713722,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BN",
+      "caixas": 53.14312961318232,
+      "chanceMeta": 0.7941176470588235,
+      "emCalibracao": false,
+      "kg": 1062.8625922636463,
+      "max": 0.8772890334709185,
+      "meta": 0.48,
+      "min": 0.23697942947966588,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Coração",
+      "pesoCaixa": 20,
+      "previa": 0.531,
+      "rendimento": 0.5571342314752922,
+      "saldoKg": 147.15141268739112,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-15",
+        "distancia": 0.03261993247810208,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-20",
+        "distancia": 0.0373507015817861,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-08",
+        "distancia": 0.1097449370310225,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-09",
+        "distancia": 0.14550704565081538,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-22",
+        "distancia": 0.15905151706713722,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BO",
+      "caixas": 274.07072958524014,
+      "chanceMeta": 0.029411764705882353,
+      "emCalibracao": false,
+      "kg": 4385.131673363842,
+      "max": 3.016624038517419,
+      "meta": 2.85,
+      "min": 1.5805966794575832,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Pés",
+      "pesoCaixa": 16,
+      "previa": 2.393,
+      "rendimento": 2.298610358987501,
+      "saldoKg": -1051.9034553701738,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-15",
+        "distancia": 0.03261993247810208,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-20",
+        "distancia": 0.0373507015817861,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-08",
+        "distancia": 0.1097449370310225,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-09",
+        "distancia": 0.14550704565081538,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-22",
+        "distancia": 0.15905151706713722,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "CMS",
+      "caixas": null,
+      "chanceMeta": 0.8529411764705882,
+      "emCalibracao": false,
+      "kg": 31207.05657510403,
+      "max": 18.55756965019462,
+      "meta": 15,
+      "min": 14.158831525515904,
+      "nCalibracao": 16,
+      "nCasos": 16,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "CMS + dorso",
+      "pesoCaixa": null,
+      "previa": 15.811,
+      "rendimento": 16.35820058785526,
+      "saldoKg": 2591.0822133460515,
+      "semApontamento": false,
+      "similares": [
+       {
+        "data": "2026-10-15",
+        "distancia": 0.03261993247810208,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-20",
+        "distancia": 0.0373507015817861,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-08",
+        "distancia": 0.1097449370310225,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-09",
+        "distancia": 0.14550704565081538,
+        "turno": "T2"
+       },
+       {
+        "data": "2026-10-22",
+        "distancia": 0.15905151706713722,
+        "turno": "T2"
+       }
+      ]
+     },
+     {
+      "c": "BQ",
+      "caixas": 0,
+      "chanceMeta": 0.03125,
+      "emCalibracao": false,
+      "kg": 0,
+      "max": 0.004,
+      "meta": 0.8,
+      "min": 0,
+      "nCalibracao": 15,
+      "nCasos": 15,
+      "nHistorico": 18,
+      "nivelFaixa": 0.9,
+      "nome": "Sambiquira",
+      "pesoCaixa": 20,
+      "previa": null,
+      "rendimento": 0,
+      "saldoKg": -1526.1852992937588,
+      "semApontamento": true,
+      "similares": []
+     }
+    ],
+    "metodo": "Combinação regularizada de composição, regressão e memória de casos; dados anteriores do mesmo turno.",
+    "nHistorico": 18,
+    "status": "estimativa",
+    "turno": "T2",
+    "versao": "previas-1.0.0",
+    "volume": {
+     "aves": 57383,
+     "avesEstimadasAteAgora": 42118,
+     "avisos": [
+      "Q é programação; pode mudar antes do fechamento."
+     ],
+     "fonte": "Q da prévia calibrado pelos fechamentos anteriores",
+     "kg": 190773.16241171985,
+     "maxKg": 227429.0904976147,
+     "minKg": 154117.23432582495,
+     "pesoMedio": 3.3245329164417616
+    }
+   },
+   "recebidoEm": "2026-10-29T00:42:04-03:00",
+   "registroId": "2026-10-28_T2",
+   "retrospectiva": false,
+   "tipo": "previa",
+   "turno": "T2",
+   "v": {
+    "AI": 110229,
+    "AS": "14:00",
+    "AT": "21:44",
+    "BA": 78.347,
+    "BD": 25.64,
+    "BE": 23.868,
+    "BG": 4.53,
+    "BH": 2.757,
+    "BI": 0.916,
+    "BL": 0.581,
+    "BM": 1.319,
+    "BN": 0.531,
+    "BO": 2.393,
+    "BP": 4.673,
+    "DORSO": 11.138,
+    "N": 68800,
+    "Q": 57900,
+    "R": 42118,
+    "S": 139465,
+    "U": 3.311
+   }
   }
  ]
 }
