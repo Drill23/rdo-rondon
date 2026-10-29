@@ -1,7 +1,39 @@
 # LEI DE LANÇAMENTO · Sistema Rondon (RDO + Radar de Desvios)
 
 > **Documento exclusivo da IA que lança dados no sistema.** Não aparece no painel e não é para o usuário ler.
-> **Versão 5 · 21/10/2026.** Vale para todo lançamento, sempre, do começo ao fim.
+> **Versão 6 · 28/10/2026.** Vale para todo lançamento, sempre, do começo ao fim.
+
+---
+
+## Atualização obrigatória — prévias e previsão de fechamento
+
+Esta seção prevalece sobre instruções antigas quando o arquivo é uma **prévia**. Os procedimentos dos RDOs **finalizados**, do Radar e do 5S continuam iguais.
+
+- Primeiro classifique a entrada como `previa` ou final. Nunca lance uma prévia em `registros`. Prévias vão somente na chave adicional `previas` do mesmo `dados/rdo-base.json`.
+- RDO finalizado continua em `registros`, com um registro por dia e turno. O final não apaga as prévias correspondentes. O painel faz a comparação automaticamente.
+- Preserve todas as chaves existentes da base, inclusive `previas`, snapshots `previsao`, `descartes`, `LEI_IA` e extensões desconhecidas. Leia a base atual e seu SHA antes de gravar; releia em conflito.
+- Quando o usuário mandar uma versão nova do painel, atualize `index.html` e `INSTRUCOES_IA.md`. **Não substitua a base remota pela cópia de outubro que acompanha o pacote.** Ela está em `referencia/rdo-base-recebida.json` para auditoria. Novos lançamentos feitos depois de 27/10 têm que continuar no GitHub.
+- A memória inicial de prévias reais já está embutida no index e disponível em `dados/previas-historicas.json`. Não é necessário substituir `dados/rdo-base.json` para ativar o recurso. Se mesclar essa memória na chave `previas`, preserve todos os lançamentos atuais e snapshots já existentes.
+- Para uma prévia, leia somente a coluna da data de produção solicitada (em geral a mais recente). Colunas passadas são contexto, não novas prévias. O cabeçalho TODOS pode conter totais agregados nos dias anteriores; nunca importe esses totais como finais de T1 ou T2.
+- Identifique o turno pelo cabeçalho; se TODOS ou ausente, procure evidência inequívoca. Não chute com base apenas no nome, no horário de criação ou na quantidade de aves. Se continuar ambíguo, peça o turno. O formulário permite a seleção após a leitura do PDF.
+- Horário é opcional. Não fixe 12h, 19h30, 21h30 ou 23h30. Horário de criação do PDF pode ser guardado como metadado, não como horário garantido da coleta. A data de produção do T2 não muda quando passa da meia-noite.
+- Copie R, S, U, AI, BA, Q, metas e rendimentos como estão. Não transforme previsão em valor realizado; não complete uma célula vazia com zero.
+- `baseAbate` informa o significado de R e S: `parcial`, `total` ou `naoInformada`. Só use `total` se confirmado que o PDF já informa o abate completo. Não conclua que S/U representa aves já processadas se S é o total do turno. AI é produção apontada, não peso vivo abatido.
+- `avesPlanejadas` é opcional e deve ser a programação atual confirmada do turno. A tendência de T1 de 51–53 mil é referência histórica, não regra fixa. `pesoMedioFinal` também é opcional e exige informação real do planejamento.
+- Quando projetar por tempo, informe `inicio`, `fim`, `horario`, `pausasTotais` e `pausasDecorridas` em minutos. Não desconte as pausas duas vezes nem confunda jornada de trabalho com duração líquida da linha.
+- Não invente confiança nem escreva `previsao` por conta própria. Sem snapshot já exportado pelo painel, omita esse campo: o painel calcula e guarda. Um snapshot válido já existente é imutável; restaure-o sem recalcular. `retrospectiva:true` marca reconstituições históricas, que não contam como previsões feitas ao vivo.
+
+Exemplo de entrada para o painel (valores somente ilustrativos, **não gravar como dado real**)
+
+```json
+{"previas":[{"tipo":"previa","data":"2026-10-28","turno":"T1","baseAbate":"parcial","horario":"12:15","fonte":"previa.pdf","v":{"R":35000,"S":105000,"U":3.0,"Q":52000,"AI":84000,"BA":80.0,"BD":25.7,"BE":25.8,"BG":4.5,"BH":2.7,"BI":0.9,"BL":1.2,"BM":1.1,"BN":0.5,"BO":2.1,"BP":5.5,"DORSO":10.0},"metas":{"BE":26.5}}]}
+```
+
+Lançamento por JSON: **RDO › Prévia do fechamento › Nova prévia › Colar JSON da IA**. Depois confira e calcule. Também pode colar na entrada antiga se `tipo:"previa"` ou a chave `previas` estiverem presentes; não marque como final.
+
+Para gravar por IA no GitHub, faça um merge **aditivo** na lista `previas`. Preserve todos os objetos anteriores; não substitua por data/turno porque um turno pode ter diversas prévias. Não reutilize o mesmo id para conteúdos diferentes. A identificação canônica usa dados, metas e premissas; para deduplicação exata, use o núcleo `RDOFechamento` de `fontes/previa-engine.js`. Sem executar o núcleo, acrescente um identificador único com data, turno e instante, sem apagar entradas existentes; o painel normaliza a identidade e conserva o primeiro snapshot.
+
+Ao responder, informe data, turno, que a entrada é uma prévia e se foi gravada no GitHub ou entregue como JSON. Não afirme percentuais de certeza que você não calculou e não apresente simulação como produção real.
 
 ---
 
@@ -475,7 +507,7 @@ Conferência cujo campo não veio no PDF simplesmente não se aplica.
 2. Faça o parse. **Se o arquivo atual estiver quebrado, PARE** e avise o usuário. Não sobrescreva uma base que você não conseguiu ler.
 3. Para cada registro novo: se já existe um com o mesmo `id`, substitua inteiro; se não existe, acrescente.
 4. Ordene os registros por data e depois por turno.
-5. `descartes`: copie exatamente como veio (mesmos objetos, mesma ordem). Se não existir, use `[]`.
+5. Preserve `previas`, snapshots e todas as chaves adicionais intactas. `descartes`: copie exatamente como veio (mesmos objetos, mesma ordem). Se não existir, use `[]`.
 6. Atualize `atualizadoEm` (agora, `-03:00`). Mantenha `sistema` e `versao` e mantenha `LEI_IA`; se ela faltar, use o texto padrão abaixo.
 7. Serialize no formato da seção 2: cabeçalho, um registro por linha, um descarte por linha, `}` e quebra de linha no fim.
 8. Antes de gravar, confira: o texto novo faz parse; nº de registros novo ≥ antigo; `descartes` idêntico ao antigo; nenhum `id` repetido.
@@ -501,10 +533,14 @@ def nova_base(texto_atual, novos):
     desc = base.get('descartes', [])
     mapa = {r.get('id') or f"{r['data']}_{r['turno']}": r for r in antes_r}
     for r in novos:
+        if r.get('tipo') == 'previa' or r.get('previa') is True:
+            raise ValueError('Prévia deve ir em previas, não em registros')
         mapa[r['id']] = r                                # upsert por id
     regs = sorted(mapa.values(), key=lambda r: r['data'] + r['turno'])
     agora = datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=-3))).isoformat(timespec='seconds')
-    cab = {'sistema': base.get('sistema', 'RDO Rondon'), 'versao': 1, 'atualizadoEm': agora, 'LEI_IA': base.get('LEI_IA') or LEI_PADRAO}
+    # Preserve prévias, snapshots e extensões: nunca remonte apenas as chaves antigas.
+    cab = {k: v for k, v in base.items() if k not in ('registros', 'descartes')}
+    cab.update({'sistema': base.get('sistema', 'RDO Rondon'), 'versao': 1, 'atualizadoEm': agora, 'LEI_IA': base.get('LEI_IA') or LEI_PADRAO})
     linha = lambda o: json.dumps(o, ensure_ascii=False, separators=(',', ':'))
     texto = (linha(cab)[:-1] + ',"registros":[\n' + ',\n'.join(map(linha, regs)) + '\n],"descartes":['
              + ('\n' + ',\n'.join(map(linha, desc)) + '\n' if desc else '') + ']}\n')
