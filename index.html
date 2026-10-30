@@ -130,6 +130,43 @@ kbd { font-family: var(--f-mono); font-size: 11px; font-weight: 700; border: 1.5
 #dica5.on { opacity: 1; transform: translate(-50%, 0); }
 
 </style>
+<style id="camada-celular-inicio">
+/* =====================================================================
+   CAMADA CELULAR · TELA INICIAL
+   Celular em pé: os dois painéis cabem juntos na tela, sem rolar.
+   No computador nada daqui é aplicado.
+   ===================================================================== */
+@media (max-width: 560px) {
+  #home { padding: 0 16px calc(18px + env(safe-area-inset-bottom)); padding-top: env(safe-area-inset-top); }
+  .h-topo { padding: 14px 0 4px; }
+  .h-logo { width: 40px; height: 40px; border-radius: 11px; }
+  .h-logo svg { width: 22px; height: 22px; }
+  .h-marca b { font-size: 21px; }
+  .h-marca small { font-size: 10px; letter-spacing: .14em; }
+  .h-centro { justify-content: flex-start; padding: 10px 0 0; }
+  .h-kick { margin-bottom: 8px; font-size: 10.5px; }
+  .h-tit { font-size: 29px; margin-bottom: 18px; }
+  .h-cards { gap: 18px; }
+  .h-card { grid-template-areas: "ic faixa" "ic nome" "sub sub" "lista lista" "st st" "ir ir"; column-gap: 14px; padding: 0 16px 16px; border-radius: 18px; box-shadow: 5px 5px 0 var(--ink); }
+  .h-card:before { height: 34px; }
+  .hc-faixa { margin-right: -16px; padding: 8px 16px 8px 0; font-size: 10.5px; }
+  .hc-ic { width: 62px; height: 62px; margin-top: 16px; border-radius: 15px; box-shadow: 4px 4px 0 var(--ink); }
+  .hc-nome { font-size: 44px; margin-top: 4px; }
+  .hc-sub { margin-top: 12px; font-size: 14.5px; }
+  .hc-lista { gap: 6px; margin-top: 10px; }
+  .hc-lista i { font-size: 10px; padding: 3px 8px; border-width: 1.5px; }
+  .hc-status { margin-top: 10px; font-size: 11px; }
+  .hc-ir { margin-top: 12px; padding: 11px 14px; font-size: 16px; border-radius: 12px; box-shadow: 3px 3px 0 var(--c); }
+}
+@media (max-width: 560px) and (max-height: 760px) {
+  .hc-lista { display: none; }
+  .h-tit { font-size: 26px; margin-bottom: 14px; }
+}
+@media (max-width: 760px) {
+  #faixa { padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right)); }
+  #faixa button { height: 30px; }
+}
+</style>
 </head>
 <body>
 <main id="home" aria-label="Escolha o sistema">
@@ -1649,6 +1686,87 @@ body.com-foco .view, body.com-foco .topo, body.com-foco .filtros, body.com-foco 
 
 html.pv-mode .tb-acoes [data-act=exp-abrir],html.pv-mode .tb-acoes [data-act=apresentar],html.pv-mode .tb-acoes [data-act=whats]{display:none}.pv-controls,.pv-import{display:flex;gap:12px;align-items:end;flex-wrap:wrap}.pv-import{align-items:center;margin-bottom:12px}.pv-controls .inp{min-width:220px}.pv-table{min-width:790px}.pv-table small,.pv-details td small{display:block;margin-top:4px;font-size:11px;line-height:1.4}.pv-number{font-size:19px;white-space:nowrap;font-family:var(--f-mono)}.pv-condition{margin:18px 0 10px;padding:12px 14px;background:var(--paper-2);border-left:4px solid var(--accent);font-size:12.5px;line-height:1.6}.pv-details{padding:14px 0;border-bottom:1px solid var(--line)}.pv-details summary{font-weight:700;cursor:pointer}.pv-details:last-child{border-bottom:0}.pv-details p{font-size:13px;line-height:1.6}.pv-details .row{margin-top:12px}#pv-form-error,#pv-json-error{margin:10px 0;font-size:13px}#pv-form-error:empty,#pv-json-error:empty{display:none}@media(max-width:650px){.pv-controls>.field{width:100%}.pv-table{min-width:730px}.pv-number{font-size:16px}.pv-condition{font-size:12px}}
 
+</style>
+<style id="camada-celular-rdo">
+/* =====================================================================
+   CAMADA CELULAR · RDO
+   Só vale em telas estreitas (celular e tablet em pé). No computador
+   nenhuma destas regras é aplicada: o layout de PC continua o mesmo.
+   ===================================================================== */
+@media (max-width: 1040px) {
+  .hero3 { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  /* "Início · visão geral" do topo: no celular a barra de baixo (Geral) já faz isso; o título ganha o espaço */
+  #tb-voltar .btn-voltar.casa { display: none; }
+  .tb-title h1 { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.08; font-size: 19px; }
+  /* faixa colorida do cartão principal: quebra em duas linhas em vez de cortar */
+  .hero3 .h3-faixa { flex-wrap: wrap; row-gap: 3px; padding: 9px 14px; font-size: 10.5px; line-height: 1.35; }
+  .hero3 .h3-faixa > span:first-of-type { flex: 1 1 0; min-width: 0; }
+  .hero3 .h3-faixa > span + span { flex: 1 1 100%; margin-left: 0; padding-left: 27px; white-space: normal; overflow: visible; font-size: 11px; }
+  .h3-main { padding: 18px 16px 20px; }
+  .h3-ver { max-width: none; font-size: 28px; }
+  .h3-sub { font-size: 14.5px; }
+
+  /* cartões de previsão: nome inteiro em cima, chance embaixo */
+  .tl-band { flex-wrap: wrap; row-gap: 2px; align-items: flex-start; }
+  .tl-nm { white-space: normal; overflow: visible; line-height: 1.15; font-size: 13px; }
+  .tl-band > .mono { flex: 1 1 100%; font-size: 9.5px !important; opacity: .85; }
+  .tl-meta { font-size: 10px; line-height: 1.35; }
+
+  /* barras item a item: nome pode ocupar duas linhas */
+  .hb-r .lb { white-space: normal; overflow: visible; line-height: 1.15; overflow-wrap: anywhere; }
+
+  /* faixa "para onde foi cada 100 kg": números menores para caber nos pedaços */
+  .strip { height: 58px; }
+  .strip .sg { padding: 6px 4px; }
+  .strip .sg b { font-size: 14px; font-stretch: 75%; }
+  .strip .sg span { font-size: 9.5px; }
+  .strip .sg.sg-mudo b, .strip .sg.sg-mudo span { visibility: hidden; }
+  .strip-leg { font-size: 11.5px; gap: 6px 12px; }
+
+  /* calendário: dia em cima, valor embaixo, sem um encobrir o outro */
+  .cal { gap: 4px; }
+  .cal .dh { font-size: 9px; letter-spacing: .02em; }
+  .cal .dc { aspect-ratio: .86; padding: 3px 4px; font-size: 10px; border-radius: 7px; }
+  .cal .dc b { left: 2px; right: 2px; bottom: 3px; text-align: center; font-size: 8.4px; letter-spacing: -.04em; font-stretch: 80%; overflow: hidden; }
+
+  /* ajustes: controles largos descem para a linha de baixo */
+  .opt:has(> .seg), .opt:has(> input[type=range]), .opt:has(> .pick) { flex-wrap: wrap; row-gap: 10px; }
+  .opt:has(> .seg) > div:first-child, .opt:has(> input[type=range]) > div:first-child, .opt:has(> .pick) > div:first-child { flex: 1 1 100%; }
+  .opt > .seg { flex: 1 1 100%; display: flex; }
+  .opt > .seg button { flex: 1; padding: 0 6px; }
+  .opt > input[type=range] { flex: 1; min-width: 0; }
+  .opt > .pick { flex: 1 1 100%; }
+  .opt .inp { width: 84px; }
+
+  /* tabelas largas viram cartões (um por linha), com o nome de cada coluna */
+  .tb-wrap.m-cards { overflow: visible; }
+  .m-cards .tb, .m-cards .tb tbody { display: block; width: 100%; }
+  .m-cards .tb thead { display: none; }
+  .m-cards .tb tfoot { display: block; }
+  .m-cards .tb tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px 10px; padding: 11px 12px; border-bottom: 1.5px solid var(--line-soft); }
+  .m-cards .tb tbody tr:last-child, .m-cards .tb tfoot tr:last-child { border-bottom: 0; }
+  .m-cards .tb tbody tr:nth-child(even) { background: color-mix(in srgb, var(--paper-2) 70%, transparent); }
+  .m-cards .tb td, .m-cards .tb th { display: block; padding: 0; border: 0; background: none !important; text-align: left !important; white-space: normal; min-width: 0; overflow-wrap: break-word; }
+  .m-cards .tb td.m-dupla { grid-column: span 2; }
+  .m-cards .tb td:first-child, .m-cards .tb td.m-cheia, .m-cards .tb td[colspan] { grid-column: 1 / -1; }
+  .m-cards .tb td:first-child { font-size: 14.5px; }
+  .m-cards .tb td:not(:first-child) { font-size: 13.5px; }
+  .m-cards .tb td.m-acoes { grid-column: auto / -1; display: flex; justify-content: flex-end; align-items: flex-end; gap: 6px; }
+  .m-cards .tb td.m-acoes::before { display: none !important; }
+  .m-cards .tb tfoot td, .m-cards .tb tfoot th { box-shadow: none; border: 0; }
+  .m-cards .tb td[data-l]:not(:first-child)::before { content: attr(data-l); display: block; margin-bottom: 2px; font-family: var(--f-mono); font-size: 9px; font-weight: 700; letter-spacing: .04em; line-height: 1.25; text-transform: uppercase; color: var(--ink-3); }
+  .m-cards .tb td:empty { display: none; }
+  .m-cards .tb td.n { font-size: 15px; }
+  .m-cards .prob { min-width: 0; width: auto; }
+}
+@media (max-width: 380px) {
+  .m-cards .tb tr { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .m-cards .tb td.m-dupla { grid-column: 1 / -1; }
+  .h3-ver { font-size: 25px; }
+  .tl-big { font-size: 24px; }
+}
 </style>
 </head>
 <body>
@@ -7881,6 +7999,84 @@ function iniciar() {
 document.addEventListener('DOMContentLoaded', iniciar);
 
 <⁄script>
+<script id="ajuste-celular-rdo">
+/* CAMADA CELULAR · RDO — só age em tela estreita (até 640 px).
+   No computador não muda nada. Depois de cada tela desenhada:
+   - tabelas que não cabem viram cartões (cada coluna ganha o seu nome);
+   - rótulos de régua que passariam da borda são puxados para dentro;
+   - números da faixa "para onde foi cada 100 kg" que não cabem no pedaço somem. */
+(function () {
+  'use strict';
+  var mq = window.matchMedia ? window.matchMedia('(max-width: 640px)') : null;
+  function celular() { return mq ? mq.matches : window.innerWidth <= 640; }
+  function rotular(tb) {
+    var cab = tb.tHead && tb.tHead.rows.length ? tb.tHead.rows[tb.tHead.rows.length - 1] : null;
+    if (!cab) return false;
+    var nomes = [];
+    Array.prototype.forEach.call(cab.cells, function (th) {
+      var n = (th.textContent || '').replace(/\s+/g, ' ').trim(), span = th.colSpan || 1;
+      for (var k = 0; k < span; k++) nomes.push(n);
+    });
+    Array.prototype.forEach.call(tb.tBodies, function (b) {
+      Array.prototype.forEach.call(b.rows, function (tr) {
+        var col = 0;
+        Array.prototype.forEach.call(tr.cells, function (td) {
+          if (nomes[col] && !td.hasAttribute('data-l')) td.setAttribute('data-l', nomes[col]);
+          var txt = (td.textContent || '').replace(/\s+/g, ' ').trim();
+          if (!txt && td.querySelector('button, a') && !td.querySelector('.prob, [class*="bar"], svg:not(.ic)')) td.classList.add('m-acoes');
+          else if (!txt || txt.length > 26 || td.querySelector('.prob, [class*="bar"], .hb-t, .gauge, .regua, .strip, svg:not(.ic)')) td.classList.add('m-cheia');
+          else if (txt.length > 12) td.classList.add('m-dupla');
+          col += td.colSpan || 1;
+        });
+      });
+    });
+    return nomes.length >= 3;
+  }
+  function tabelas(raiz) {
+    var lista = raiz.querySelectorAll('.tb-wrap');
+    for (var i = 0; i < lista.length; i++) {
+      var w = lista[i], tb = w.querySelector('table.tb');
+      if (!tb || w.closest('.rdo-wrap')) continue;
+      if (!celular()) { w.classList.remove('m-cards'); continue; }
+      if (w.classList.contains('m-cards')) { rotular(tb); continue; }
+      if (tb.scrollWidth > w.clientWidth + 2 && rotular(tb)) w.classList.add('m-cards');
+    }
+  }
+  function reguas(raiz) {
+    var labs = raiz.querySelectorAll('.gauge .g-lab');
+    for (var i = 0; i < labs.length; i++) {
+      var l = labs[i], g = l.closest('.gauge');
+      l.style.transform = '';
+      if (!celular() || l.classList.contains('zero')) continue;
+      var r = l.getBoundingClientRect(), rg = g.getBoundingClientRect();
+      if (r.right > rg.right + 1) l.style.transform = 'translateX(calc(-50% - ' + (r.right - rg.right).toFixed(0) + 'px))';
+      else if (r.left < rg.left - 1) l.style.transform = 'translateX(calc(-50% + ' + (rg.left - r.left).toFixed(0) + 'px))';
+    }
+  }
+  function faixas(raiz) {
+    var sgs = raiz.querySelectorAll('.strip .sg');
+    for (var i = 0; i < sgs.length; i++) {
+      var s = sgs[i], b = s.querySelector('b');
+      s.classList.remove('sg-mudo');
+      if (celular() && b && b.scrollWidth > s.clientWidth - 6) s.classList.add('sg-mudo');
+    }
+  }
+  var agendado = 0;
+  function ajustar() {
+    agendado = 0;
+    try { tabelas(document); reguas(document); faixas(document); } catch (e) { }
+  }
+  function agendar() { if (!agendado) agendado = setTimeout(ajustar, 140); }
+  function iniciar() {
+    ajustar();
+    try { new MutationObserver(agendar).observe(document.body, { childList: true, subtree: true }); } catch (e) { }
+    window.addEventListener('resize', agendar);
+    if (mq && mq.addEventListener) mq.addEventListener('change', agendar);
+    setTimeout(ajustar, 1300);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', iniciar); else iniciar();
+})();
+<⁄script>
 </body>
 </html>
 </script>
@@ -10115,6 +10311,36 @@ button,a,.pchip,.leaf{-webkit-tap-highlight-color:transparent}
 :root[data-theme] .sl-chl{background:var(--hl)!important;height:.3em;border:2px solid var(--ink);border-radius:4px}
 :root[data-theme] .sl-chi{box-shadow:5px 5px 0 var(--sh)!important}
 :root[data-theme] .pr-dock,:root[data-theme] .pr-bar{border-top:2.5px solid var(--ink)}
+</style>
+<style id="camada-celular-radar">
+/* =====================================================================
+   CAMADA CELULAR · RADAR
+   Só vale com a "casca estreita" do Radar (celular e tablet em pé).
+   No computador nada daqui é aplicado.
+   ===================================================================== */
+/* menu lateral fechado não deixa mais a sombra escura na borda esquerda */
+[data-narrow] #app:not(.menu-open) #side { box-shadow: none; }
+
+/* títulos dos painéis: até duas linhas em vez de cortar com "…" */
+[data-narrow] .pnl-h > div { min-width: 0; }
+[data-narrow] .pnl-h h3 { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.2; overflow: hidden; overflow-wrap: anywhere; }
+
+/* cartões de número (KPI): rótulo e explicação cabem inteiros */
+[data-narrow] .kpi .kl { white-space: normal; line-height: 1.2; letter-spacing: .05em; align-items: flex-start; }
+[data-narrow] .kpi .kl .qi { flex: none; }
+[data-narrow] .kpi .ks { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.25; }
+
+/* abas das páginas (chips de cima): nome inteiro, a fileira desliza para o lado */
+[data-narrow] .pchip { max-width: none; }
+
+/* Desvios principais: a fita da semana mostra os 3 últimos dias para não sair do cartão */
+[data-narrow] .card .cw span:nth-last-child(n+4) { display: none; }
+
+/* Turno × Turno e listas divergentes: a etiqueta da direita ganha o espaço que precisa */
+[data-narrow] .db-row, [data-narrow] .dv-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto !important; }
+
+/* rodapés das listas: texto em até duas linhas */
+[data-narrow] .lfoot .lf-n { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.25; }
 </style>
 </head>
 <body>
