@@ -1,7 +1,7 @@
 # LEI DE LANÇAMENTO · Sistema Rondon (RDO + Radar de Desvios)
 
 > **Documento exclusivo da IA que lança dados no sistema.** Não aparece no painel e não é para o usuário ler.
-> **Versão 6 · 28/10/2026.** Vale para todo lançamento, sempre, do começo ao fim.
+> **Versão 7 · 30/10/2026.** Vale para todo lançamento, sempre, do começo ao fim.
 
 ---
 
@@ -15,18 +15,20 @@ Esta seção prevalece sobre instruções antigas quando o arquivo é uma **pré
 - Quando o usuário mandar uma versão nova do painel, atualize `index.html` e `INSTRUCOES_IA.md`. **Não substitua a base remota pela cópia de outubro que acompanha o pacote.** Ela está em `referencia/rdo-base-recebida.json` para auditoria. Novos lançamentos feitos depois de 27/10 têm que continuar no GitHub.
 - A memória inicial de prévias reais já está embutida no index e disponível em `dados/previas-historicas.json`. Não é necessário substituir `dados/rdo-base.json` para ativar o recurso. Se mesclar essa memória na chave `previas`, preserve todos os lançamentos atuais e snapshots já existentes.
 - Para uma prévia, leia somente a coluna da data de produção solicitada (em geral a mais recente). Colunas passadas são contexto, não novas prévias. O cabeçalho TODOS pode conter totais agregados nos dias anteriores; nunca importe esses totais como finais de T1 ou T2.
-- Identifique o turno pelo cabeçalho; se TODOS ou ausente, procure evidência inequívoca. Não chute com base apenas no nome, no horário de criação ou na quantidade de aves. Se continuar ambíguo, peça o turno. O formulário permite a seleção após a leitura do PDF.
+- Identifique o turno pelo cabeçalho. **Somente para prévias:** cabeçalho TODOS pode ser identificado como T1 se a coluna da data tem início (AS) 03:30, término AT 00:00 ou vazio, AX numérico abaixo de 8,5 e evidência confirmada de que o 2º turno ainda não iniciou. Só o horário não prova o turno. Esta exceção não vale para RDO final: fechamento com TODOS não é lançado como T1 ou T2. Nesse caso grave `turno:"T1"` e escreva em `obs`: `turno T1 pelo cabeçalho TODOS (AS 03:30, sem 2º turno)`. Fora dessa regra, não chute com base no nome, no horário de criação ou na quantidade de aves: se continuar ambíguo, peça o turno.
 - Horário é opcional. Não fixe 12h, 19h30, 21h30 ou 23h30. Horário de criação do PDF pode ser guardado como metadado, não como horário garantido da coleta. A data de produção do T2 não muda quando passa da meia-noite.
-- Copie R, S, U, AI, BA, Q, metas e rendimentos como estão. Não transforme previsão em valor realizado; não complete uma célula vazia com zero.
+- Copie a **coluna inteira da data** na página 1, com as mesmas regras de leitura do RDO final (seções 4 e 5): todos os códigos que tiverem número, inclusive AS, AT, AU, AV, AW, **AX**, AY, AJ, Q, R, S, U, AI, BA e os 12 itens, e a coluna META em `metas`. **AX (horas trabalhadas) é essencial:** o painel usa AX para projetar quantas aves o 1º turno ainda vai abater. Sem AX a projeção de volume cai para a média do turno e fica cerca de 3 vezes menos precisa. Não transforme previsão em valor realizado; não complete uma célula vazia com zero.
 - `baseAbate` informa o significado de R e S: `parcial`, `total` ou `naoInformada`. Só use `total` se confirmado que o PDF já informa o abate completo. Não conclua que S/U representa aves já processadas se S é o total do turno. AI é produção apontada, não peso vivo abatido.
-- `avesPlanejadas` é opcional e deve ser a programação atual confirmada do turno. A tendência de T1 de 51–53 mil é referência histórica, não regra fixa. `pesoMedioFinal` também é opcional e exige informação real do planejamento.
+- `avesPlanejadas` é opcional e deve ser a programação atual confirmada do turno. **Se o grupo do PCP informar a programação do 1º turno do dia, grave em `avesPlanejadas`:** o 1º turno abateu 99,8% do programado em todos os dias de outubro, e com esse número o erro da projeção de aves cai de cerca de ±900 para ±20. A prévia do T1 traz Q = 50000 fixo: isso não é programação, não copie como `avesPlanejadas`. A tendência de T1 de 51–53 mil é referência histórica, não regra fixa. `pesoMedioFinal` também é opcional e exige informação real do planejamento.
 - Quando projetar por tempo, informe `inicio`, `fim`, `horario`, `pausasTotais` e `pausasDecorridas` em minutos. Não desconte as pausas duas vezes nem confunda jornada de trabalho com duração líquida da linha.
 - Não invente confiança nem escreva `previsao` por conta própria. Sem snapshot já exportado pelo painel, omita esse campo: o painel calcula e guarda. Um snapshot válido já existente é imutável; restaure-o sem recalcular. `retrospectiva:true` marca reconstituições históricas, que não contam como previsões feitas ao vivo.
+
+- **Painel v2 (30/10/2026):** a tela mostra, para cada item, o rendimento projetado, a chance de fechar a meta e o mín–máx; quando o RDO final daquele dia e turno entra em `registros`, a comparação aparece sozinha. Você não calcula nada disso: só transcreve a prévia. Snapshots `previsao` válidos ficam guardados e são usados como foram gravados no comparativo. O motor novo vale para novas prévias. Reconstituições históricas e entradas sem snapshot ficam fora do placar ao vivo. Programação local não altera uma previsão já gravada.
 
 Exemplo de entrada para o painel (valores somente ilustrativos, **não gravar como dado real**)
 
 ```json
-{"previas":[{"tipo":"previa","data":"2026-10-28","turno":"T1","baseAbate":"parcial","horario":"12:15","fonte":"previa.pdf","v":{"R":35000,"S":105000,"U":3.0,"Q":52000,"AI":84000,"BA":80.0,"BD":25.7,"BE":25.8,"BG":4.5,"BH":2.7,"BI":0.9,"BL":1.2,"BM":1.1,"BN":0.5,"BO":2.1,"BP":5.5,"DORSO":10.0},"metas":{"BE":26.5}}]}
+{"previas":[{"tipo":"previa","data":"2026-10-28","turno":"T1","baseAbate":"parcial","horario":"12:15","fonte":"previa.pdf","obs":"turno T1 pelo cabeçalho TODOS (AS 03:30, sem 2º turno)","v":{"Q":50000,"R":35000,"S":105000,"U":3.0,"AI":84000,"AJ":80.0,"AS":"03:30","AT":"00:00","AU":1.7,"AV":4.2,"AW":0,"AX":4.2,"BA":80.0,"BD":25.7,"BE":25.8,"BG":4.5,"BH":2.7,"BI":0.9,"BL":1.2,"BM":1.1,"BN":0.5,"BO":2.1,"BP":5.5,"DORSO":10.0,"BQ":0},"metas":{"BD":26.5,"BE":26.5,"BG":4.6,"BH":2.8,"BI":0.93,"BL":1.6,"BM":1.1,"BN":0.48,"BO":2.85,"BP":15}}]}
 ```
 
 Lançamento por JSON: **RDO › Prévia do fechamento › Nova prévia › Colar JSON da IA**. Depois confira e calcule. Também pode colar na entrada antiga se `tipo:"previa"` ou a chave `previas` estiverem presentes; não marque como final.
