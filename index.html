@@ -2043,7 +2043,9 @@ const RDOPrevClaude = (() => {
     aves = Math.max(aves, R);
     const kg = Math.max(S, aves * U);
     if (t === 'T1' && hR.length && (aves < 51000 || aves > 53000)) avisos.push('Projeção fora da faixa habitual do 1º turno (51 a 53 mil aves): confira a programação do dia.');
-    return { aves: Math.round(aves), kg, pesoMedio: U, fonte: via, avisos, avanco: Math.min(1, R / aves), avesAteAgora: R, kgAteAgora: S };
+    const totalConfirmado = p.baseAbate === 'total', truncado = !totalConfirmado && Math.round(100 * Math.min(1, R / aves)) >= 100;
+    if (truncado) avisos.push('O avanço exibido de 100% é só o limite da estimativa de volume (o abate estimado ficou igual ou muito próximo do já realizado). O fim do turno NÃO foi confirmado: baseAbate=' + (p.baseAbate || 'naoInformada') + '.');
+    return { aves: Math.round(aves), kg, pesoMedio: U, fonte: via, avisos, avanco: Math.min(1, R / aves), avesAteAgora: R, kgAteAgora: S, abateTotalConfirmado: totalConfirmado, avancoTruncado: truncado };
   }
 
   /* ---------- confiança: faixa e chance ---------- */
@@ -2079,17 +2081,25 @@ const RDOPrevClaude = (() => {
     const nHist = antes(finals, p.turno, p.data).length;
     for (const [c, nome, metaPadrao, cxPadrao] of E.ITEMS) {
       if (!IT.includes(c)) continue;
-      const cd = E.candidates(p, c, finals, prior); if (!fin(cd.ensemble)) continue;
+      const total = p.baseAbate === 'total' && fin(p.v && p.v[c]);
+      const cd = total ? { ensemble: p.v[c] } : E.candidates(p, c, finals, prior); if (!fin(cd.ensemble)) continue;
       const meta = fin(p.metas && p.metas[c]) ? p.metas[c] : metaPadrao, y = cd.ensemble;
-      const cf = confianca(E, p, c, y, meta, finals, prior, memo);
+      // abate total confirmado: projeção = observado, sem regressão; não há incerteza de volume nem chance estimada
+      const cf = total ? { sigma: 0, nu: null, nDias: 0, min: y, max: y, chance: y >= meta ? 1 : 0 } : confianca(E, p, c, y, meta, finals, prior, memo);
       const cx = cfg.caixas && fin(cfg.caixas[c]) ? cfg.caixas[c] : cxPadrao;
       const kg = y * vol.kg / 100, saldoKg = (y - meta) * vol.kg / 100;
       itens.push({ c, nome, meta, previa: fin(p.v[c]) ? p.v[c] : null, semApontamento: !fin(p.v[c]), rendimento: y, min: cf.min, max: cf.max, nivelFaixa: 0.9,
-        chanceMeta: cf.chance, sigma: cf.sigma, nCalibracao: cf.nDias, emCalibracao: cf.nDias < 5, kg, caixas: cx > 0 ? kg / cx : null, pesoCaixa: cx || null,
+        chanceMeta: cf.chance, sigma: cf.sigma, nCalibracao: cf.nDias, emCalibracao: total ? false : cf.nDias < 5, turnoCompleto: total, kg, caixas: cx > 0 ? kg / cx : null, pesoCaixa: cx || null,
         saldoKg, saldoCx: cx > 0 ? saldoKg / cx : null });
     }
+    if (vol.abateTotalConfirmado) vol.avisos.push('Abate total confirmado: projeção = observado do PDF, sem regressão ao histórico.');
+    else {
+      const rqs = prior.filter(q => q && !q.retrospectiva && q.turno === p.turno && q.v && q.v.Q > 0 && finalDe(finals, q)).map(q => q.v.R / q.v.Q);
+      const rqMax = rqs.length ? Math.max(...rqs) : null, rq = p.v && p.v.Q > 0 ? p.v.R / p.v.Q : null;
+      if (rqMax != null && rq != null && rq > rqMax) vol.avisos.push('Prévia fora do domínio calibrado: R/Q=' + (100 * rq).toFixed(1) + '% e nenhuma prévia gravada com final passou de ' + (100 * rqMax).toFixed(1) + '%. A projeção por regressão ao histórico pode não refletir turno quase completo; sem confirmação de abate total, a chance e a faixa não têm calibração para este ponto.');
+    }
     return { versao: VERSAO, data: p.data, turno: p.turno, status: nHist >= 4 ? 'estimativa' : 'historico-insuficiente', nHistorico: nHist, volume: vol, itens,
-      condicao: 'Projeção para processo contínuo até o fim do turno, sem quebras de equipamento, paradas ou mudança de lote. Não é garantia.' };
+      condicao: vol.abateTotalConfirmado ? 'Valores observados na prévia com abate total confirmado; produto parado ainda pode mudar o fechamento final.' : 'Projeção para processo contínuo até o fim do turno, sem quebras de equipamento, paradas ou mudança de lote. Não é garantia.' };
   }
   function comparar(fc, final) {
     if (!fc || !final) return null;
@@ -7912,13 +7922,13 @@ function pvHistoricoHTML(list) {
     const f = pvPrever(p), fin = pvFinalDe(p), c = f && fin ? RDOPrevClaude.comparar(f, fin) : null;
     linhas.push({ p, f, c });
   }
-  const conf = linhas.filter(x => x.c && !x.p.retrospectiva && x.p.previsao && RDOFechamento.validSnapshot(x.p));
+  const conf = linhas.filter(x => x.c && !pvTotal(x.p) && !x.p.retrospectiva && x.p.previsao && RDOFechamento.validSnapshot(x.p));
   const tot = conf.reduce((s, x) => s + x.c.n, 0), ac = conf.reduce((s, x) => s + x.c.acertosMeta, 0), cob = conf.reduce((s, x) => s + x.c.cobertos, 0);
   const mae = tot ? conf.reduce((s, x) => s + x.c.maePP * x.c.n, 0) / tot : 0;
   const placar = conf.length ? `<div class="pv2-placar"><div><b>${conf.length}</b><span>prévias ao vivo conferidas</span></div><div><b>${N(100 * ac / tot, 0)}%</b><span>acertos de fecha / não fecha (${ac} de ${tot})</span></div><div><b>${N(mae, 3)}</b><span>erro médio, em pontos %</span></div><div><b>${N(100 * cob / tot, 0)}%</b><span>dos resultados dentro do mín–máx</span></div></div>` : '<p class="p-sm muted">O placar aparece quando o RDO final de uma prévia for lançado.</p>';
   const row = x => {
     const sel = x.p.id === PV.sel ? ' class="pv2-sel"' : '';
-    const av = x.f ? N(100 * x.f.volume.avanco, 0) + '%' : '—';
+    const av = x.f ? (pvFimNaoConfirmado(x.p, x.f) ? 'fim não confirmado' : N(100 * x.f.volume.avanco, 0) + '%') : '—';
     return `<tr${sel}><td><button class="btn ghost pv2-lk" data-act="pv-abrir" data-id="${esc(x.p.id)}">${esc(pvRotulo(x.p))}</button><small class="muted">${x.p.retrospectiva ? 'Reconstituição histórica · fora do placar ao vivo' : x.p.previsao ? 'Previsão original preservada' : 'Recalculada · fora do placar ao vivo'}</small></td>${x.c ? `<td class="n"><b>${x.c.acertosMeta}/${x.c.n}</b></td><td class="n">${N(x.c.maePP, 3)}</td><td class="n">${x.c.cobertos}/${x.c.n}</td>` : '<td class="n muted" colspan="3">aguardando o RDO final</td>'}<td class="n">${av}</td></tr>`;
   };
   const cab = '<thead><tr><th>Prévia</th><th class="n">Fecha / não fecha</th><th class="n">Erro médio (p.p.)</th><th class="n">Dentro do mín–máx</th><th class="n">Abate na prévia</th></tr></thead>';
@@ -7926,6 +7936,17 @@ function pvHistoricoHTML(list) {
   return placar + `<div class="tb-wrap"><table class="tb">${cab}<tbody>${recentes.map(row).join('')}</tbody></table></div>` +
     (resto.length ? `<details class="pv-details"><summary>Ver as outras ${resto.length} prévias</summary><div class="tb-wrap"><table class="tb">${cab}<tbody>${resto.map(row).join('')}</tbody></table></div></details>` : '') +
     '<p class="p-sm muted">Comparações usam as previsões originais gravadas. Reconstituições históricas e entradas sem previsão gravada ficam fora do placar ao vivo. O motor novo vale para novas prévias.</p>';
+}
+// Rótulo "observado" só quando o snapshot exibido é de turno completo (itens turnoCompleto). Snapshots antigos com baseAbate=total, calculados por regressão, continuam como projeção.
+function pvTotal(p) { return !!p && p.baseAbate === 'total' && !(p.previsao && Array.isArray(p.previsao.itens) && p.previsao.itens.length && !p.previsao.itens.every(i => i.turnoCompleto)); }
+function pvFimNaoConfirmado(p, f) { return !pvTotal(p) && !!f && f.volume && Math.round(100 * f.volume.avanco) >= 100; }
+function pvAvisoDominio(p) {
+  // Leitura apenas: compara com as prévias gravadas que já têm final. Não recalcula nem altera snapshots.
+  if (!p || pvTotal(p) || !(p.v && p.v.Q > 0)) return '';
+  const rqs = pvTodos().filter(q => q.id !== p.id && !q.retrospectiva && q.turno === p.turno && q.v && q.v.Q > 0 && pvFinalDe(q)).map(q => q.v.R / q.v.Q);
+  if (!rqs.length) return '';
+  const mx = Math.max(...rqs), rq = p.v.R / p.v.Q;
+  return rq > mx ? `Esta prévia está com ${N(100 * rq, 1)}% do programado (R/Q) e nenhuma prévia gravada com final passou de ${N(100 * mx, 1)}%. A projeção por regressão ao histórico não foi calibrada para um turno tão avançado, e a chance e a faixa abaixo não têm calibração para este ponto.` : '';
 }
 function vPrevias() {
   if (S.demo) return pane('Prévia do fechamento', '', `<p>Volte aos dados reais para usar as prévias.</p><button class="btn pri" data-act="demo-off">Voltar aos dados reais</button>`);
@@ -7943,18 +7964,19 @@ function vPrevias() {
   const hora = pvHora(p);
   h += `<section class="hero3 tom-${tom} reveal pv2-hero" style="grid-template-columns:1fr">
     <div class="h3-faixa" style="background:var(--prev);color:var(--prev-ink)">${ic('previsao')}<span>Prévia · ${turnoN} · ${esc(RDO.diaCurto ? RDO.diaCurto(p.data) : RDO.dm(p.data))}</span><span>${hora ? (p.horario ? 'enviada ' : 'dados até ') + esc(hora) : ''}</span></div>
-    <div class="h3-main"><span class="carimbo ${comp ? tom : 'prev'}">${comp ? 'Conferida' : 'Projeção'}</span>
-    <h2 class="h3-ver">${comp ? `${comp.acertosMeta} de ${comp.n} acertos` : `${nF} de ${n} itens devem fechar`}</h2>
-    <p class="h3-sub">${comp ? `no fecha / não fecha. Erro médio de <b>${N(comp.maePP, 3)} ponto %</b> e <b>${comp.cobertos} de ${comp.n}</b> resultados dentro do mín–máx. Na hora da prévia o abate estava em ${N(100 * v.avanco, 0)}%.` : `a meta. Abate em <b>${N(100 * v.avanco, 0)}%</b> (${N(v.avesAteAgora)} de ~${N(v.aves)} aves). ${esc(f.condicao)}`}</p></div></section>`;
+    <div class="h3-main"><span class="carimbo ${comp ? tom : 'prev'}">${comp ? 'Conferida' : pvTotal(p) ? 'Observado' : 'Projeção'}</span>
+    <h2 class="h3-ver">${comp ? `${comp.acertosMeta} de ${comp.n} acertos` : pvTotal(p) ? `${nF} de ${n} itens acima da meta na prévia` : `${nF} de ${n} itens devem fechar`}</h2>
+    <p class="h3-sub">${comp ? `no fecha / não fecha. Erro médio de <b>${N(comp.maePP, 3)} ponto %</b> e <b>${comp.cobertos} de ${comp.n}</b> resultados dentro do mín–máx. Na hora da prévia o abate estava em ${N(100 * v.avanco, 0)}%.` : pvTotal(p) ? `Abate total confirmado: ${N(v.avesAteAgora)} aves. Estes são os valores observados na prévia, não uma probabilidade nem o fechamento final: produto parado ainda pode mudar o resultado.` : pvFimNaoConfirmado(p, f) ? `a meta. Abate informado: ${N(v.avesAteAgora)} aves. O fim do turno não foi confirmado; o 100% da estimativa não significa turno completo. ${esc(f.condicao)}` : `a meta. Abate em <b>${N(100 * v.avanco, 0)}%</b> (${N(v.avesAteAgora)} de ~${N(v.aves)} aves). ${esc(f.condicao)}`}</p></div></section>`;
   if (escolha) h += pane('', '', escolha, { ampliar: false, cls: 'pv2-barra' });
+  { const dom = pvAvisoDominio(p); if (dom && !comp) h += `<div class="aviso-desc"><div><b>Fora do domínio calibrado.</b> ${esc(dom)}</div></div>`; }
   if (f.status === 'historico-insuficiente') h += `<div class="aviso-desc"><div><b>Ainda há poucos fechamentos deste turno.</b> A projeção usa a calibração inicial; a faixa fica mais larga até juntar pelo menos quatro dias.</div></div>`;
   const linha = i => {
     const st = i.rendimento >= i.meta ? 'ok' : 'ruim', r = comp && comp.itens.find(x => x.c === i.c);
-    return `<tr><td><b>${esc(i.nome)}</b><small class="muted">meta ${P(i.meta, 3)}${i.semApontamento ? ' · sem apontamento na prévia' : ''}</small></td><td class="n"><b class="pv-number c-${st}">${P(i.rendimento, 3)}</b></td><td class="pv2-chc">${pvChanceHTML(i.chanceMeta)}</td><td class="n pv2-mm">${P(i.min, 3)}<span>a</span>${P(i.max, 3)}</td>${comp ? `<td class="n">${r ? `<b>${P(r.real, 3)}</b>` : '—'}</td><td class="n">${r ? SN(r.real - r.previsto, 3) : '—'}</td><td class="n">${r ? `<span class="pv2-m ${r.metaAcertou ? 'ok' : 'x'}" title="${r.metaAcertou ? 'acertou se fechava ou não' : 'errou se fechava ou não'}">${r.metaAcertou ? '✓' : '✗'}</span>` : ''}</td>` : ''}</tr>`;
+    return `<tr><td><b>${esc(i.nome)}</b><small class="muted">meta ${P(i.meta, 3)}${i.semApontamento ? ' · sem apontamento na prévia' : ''}</small></td><td class="n"><b class="pv-number c-${st}">${P(i.rendimento, 3)}</b></td>${pvTotal(p) ? '' : `<td class="pv2-chc">${pvChanceHTML(i.chanceMeta)}</td><td class="n pv2-mm">${P(i.min, 3)}<span>a</span>${P(i.max, 3)}</td>`}${comp ? `<td class="n">${r ? `<b>${P(r.real, 3)}</b>` : '—'}</td><td class="n">${r ? SN(r.real - r.previsto, 3) : '—'}</td><td class="n">${r ? `<span class="pv2-m ${r.metaAcertou ? 'ok' : 'x'}" title="${r.metaAcertou ? 'acertou se fechava ou não' : 'errou se fechava ou não'}">${r.metaAcertou ? '✓' : '✗'}</span>` : ''}</td>` : ''}</tr>`;
   };
   const progCampo = p.turno === 'T1' && !p.previsao && !fin && !(p.avesPlanejadas > 0) ? `<div class="pv2-prog"><label for="pv-prog">Programação do 1º turno (aves) <small>opcional · o 1º turno abate 99,8% do programado</small></label><input id="pv-prog" class="inp" inputmode="numeric" data-act="pv-prog" value="${pvProgLocal()[p.id] ? N(pvProgLocal()[p.id]) : ''}" placeholder="ex.: 52.100"></div>` : '';
-  h += pane(comp ? 'Previsto × real' : 'Fechamento projetado por item', comp ? 'Previsão original gravada × RDO final. Reconstituições históricas são identificadas no histórico.' : 'Chance = probabilidade de terminar o turno na meta ou acima. Mín–máx = faixa provável de 90%.',
-    `<div class="tb-wrap"><table class="tb pv2-tab"><thead><tr><th>Item</th><th class="n">Fecha em</th><th>Chance de fechar a meta</th><th class="n">Mín – máx</th>${comp ? '<th class="n">Real</th><th class="n">Real − previsto</th><th class="n">Fecha?</th>' : ''}</tr></thead><tbody>${f.itens.map(linha).join('')}</tbody></table></div>
+  h += pane(comp ? 'Previsto × real' : pvTotal(p) ? 'Valores observados por item' : 'Fechamento projetado por item', comp ? 'Previsão original gravada × RDO final. Reconstituições históricas são identificadas no histórico.' : pvTotal(p) ? 'Valores observados na prévia com abate total confirmado. Não é o fechamento final nem uma probabilidade.' : (pvAvisoDominio(p) ? 'Chance e faixa abaixo estão sem calibração para este ponto (fora do domínio calibrado). Não use como probabilidade.' : 'Chance = probabilidade de terminar o turno na meta ou acima. Mín–máx = faixa provável de 90%.'),
+    `<div class="tb-wrap"><table class="tb pv2-tab"><thead><tr><th>Item</th><th class="n">${pvTotal(p) ? 'Observado' : 'Fecha em'}</th>${pvTotal(p) ? '' : '<th>Chance de fechar a meta</th><th class="n">Mín – máx</th>'}${comp ? '<th class="n">Real</th><th class="n">Real − previsto</th><th class="n">Fecha?</th>' : ''}</tr></thead><tbody>${f.itens.map(linha).join('')}</tbody></table></div>
     <p class="pv-condition">${esc(f.condicao)}</p>${progCampo}
     <details class="pv-details"><summary>Volume, quilos e caixas projetados</summary><p>Fechamento estimado em <b>${N(v.aves)} aves</b> e <b>${N(v.kg)} kg vivos</b> (peso médio ${N(v.pesoMedio, 3)} kg). Base: ${esc(v.fonte)}.</p>${v.avisos.map(a => `<p class="p-sm c-quase">${esc(a)}</p>`).join('')}
     <div class="tb-wrap"><table class="tb"><thead><tr><th>Item</th><th class="n">kg projetados</th><th class="n">Caixas</th><th class="n">Saldo contra a meta</th></tr></thead><tbody>${f.itens.map(i => `<tr><td>${esc(i.nome)}</td><td class="n">${N(i.kg)}</td><td class="n">${i.caixas == null ? '—' : N(i.caixas)}</td><td class="n c-${i.saldoKg >= 0 ? 'ok' : 'ruim'}">${KG(i.saldoKg)}${i.saldoCx != null && Math.abs(i.saldoCx) >= 1 ? ' · ' + SN(i.saldoCx) + ' cx' : ''}</td></tr>`).join('')}</tbody></table></div></details>
