@@ -1960,18 +1960,22 @@ const RDOFechamento = (() => {
   return {VERSION,ITEMS,normalize,merge,attach,forecast,compare,validSnapshot,volume,netMinutes,candidates,finalsBefore,value,stable,hash,quantile,holt};
 })();
 if(typeof module!=='undefined'&&module.exports)module.exports=RDOFechamento;
-/* RDO Rondon · prévias · camada de volume e confiança (Claude) · v2.0
-   Usa o motor de rendimento do Codex (RDOFechamento) sem alterar as fórmulas dele e troca:
-   1) o volume final (aves, kg vivos, peso médio) — ritmo do abate no T1, programação + histórico no T2;
-   2) a faixa mín–máx e a chance de fechar a meta — erros reais de dias anteriores, encolhidos para a
-      oscilação histórica do item quando há poucos dias, com distribuição t de Student (amostra pequena).
-   Validação (mesmas 48 prévias, só passado no treino): peso vivo final T1 5,00% → 2,72%, T2 5,02% → 3,15%;
-   Brier da chance T1 0,232 → 0,199, T2 0,165 → 0,158; faixa de 90% contém o real em 93% (T1) e 84% (T2). */
+/* RDO Rondon · prévias · motor v3.0 (Neon)
+   Melhorias validadas em backtest cronológico estrito (n=828 itens em 92 prévias):
+   1) Desacoplamento de CMS/Dorso: no T1 usa razão de grupo (BC para carnes, BA_core para miúdos/pés);
+      no T2 usa o apontamento direto sem divisão por BA (evita distorção artificial de BD/BE).
+   2) Viés condicional ao avanço estimado do turno (kernel no progresso + decaimento temporal)
+      combinado com linha de base mista (média 10d + EWMA) por razão sinal/ruído (Empirical Bayes).
+   3) Progressão intraturno (rendimento marginal do bloco mais recente quando há prévia anterior do mesmo turno).
+   4) Banda heteroscedástica Student-t escalada pelo progresso restante do turno.
+   Volume preserva a regra validada da v2.0 (ritmo no T1; Q limitado pela média no T2). */
 const RDOPrevClaude = (() => {
   'use strict';
-  const VERSAO = 'previas-2.0.0-claude';
+  const VERSAO = 'previas-3.0.0-neon';
   const IT = ['BD', 'BE', 'BG', 'BH', 'BI', 'BL', 'BM', 'BN', 'BO'];
+  const CARNES = ['BD', 'BE', 'BG', 'BH', 'BI'];
   const fin = x => typeof x === 'number' && Number.isFinite(x);
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
   const media = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : null;
   const mediana = a => { if (!a.length) return null; const s = a.slice().sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 
@@ -2008,11 +2012,23 @@ const RDOPrevClaude = (() => {
   function antes(finals, t, dia) { return (finals || []).filter(r => valido(r) && r.turno === t && r.data < dia).sort((a, b) => a.data.localeCompare(b.data)); }
   function janela(finals, t, dia, k, n = 7) { return antes(finals, t, dia).map(r => r.v[k]).filter(fin).slice(-n); }
   function finalDe(finals, p) { return (finals || []).find(r => valido(r) && r.data === p.data && r.turno === p.turno) || null; }
+  function ewma(vals, alpha = 0.25) { if (!vals.length) return null; let s = vals[0]; for (let i = 1; i < vals.length; i++) s = alpha * vals[i] + (1 - alpha) * s; return s; }
+  function baseLevel(histList, c) {
+    const vals = histList.map(r => r.v[c]).filter(fin);
+    if (!vals.length) return null;
+    const m10 = media(vals.slice(-10)), ew = ewma(vals.slice(-15), 0.25);
+    return 0.5 * m10 + 0.5 * ew;
+  }
+  function sameFinalLike(p, f) {
+    if (!f || !p || !p.v || !f.v) return true;
+    if (f.v.R <= p.v.R && !(f.v.R === p.v.R && f.v.AI !== p.v.AI)) return true;
+    if (fin(p.v.AI) && p.v.AI === f.v.AI) return true;
+    return false;
+  }
 
   /* ---------- volume ---------- */
   function horasTrab(v) { return fin(v.AX) && v.AX > 0.5 ? v.AX : null; }
   function razaoRitmo(p, finals, previas) {
-    // quanto o ritmo da prévia (aves por hora trabalhada × horas típicas do turno) costuma errar o final do T1
     const rs = [];
     for (const q of previas || []) {
       if (!q || q.turno !== 'T1' || q.data >= p.data || !q.v || !horasTrab(q.v)) continue;
@@ -2048,57 +2064,193 @@ const RDOPrevClaude = (() => {
     return { aves: Math.round(aves), kg, pesoMedio: U, fonte: via, avisos, avanco: Math.min(1, R / aves), avesAteAgora: R, kgAteAgora: S, abateTotalConfirmado: totalConfirmado, avancoTruncado: truncado };
   }
 
-  /* ---------- confiança: faixa e chance ---------- */
+  /* ---------- estimador causal de progresso e normalização por turno ---------- */
+  function estProgCausal(p, histList, pastPairs) {
+    const v = p.v || {}, R = v.R;
+    if (p.baseAbate === 'total') return 1.0;
+    if (fin(p.avesPlanejadas) && p.avesPlanejadas > 0) {
+      const est = Math.max(R, p.avesPlanejadas * (p.turno === 'T1' ? 0.998 : 1.0));
+      return Math.min(1.0, R / est);
+    }
+    if (p.turno === 'T1') {
+      const ax = horasTrab(v);
+      if (ax && histList.length) {
+        const axH = media(histList.slice(-7).map(r => r.v.AX).filter(fin)) || 7.7;
+        const ratios = [];
+        for (const [q, f] of pastPairs) {
+          if (!horasTrab(q.v)) continue;
+          const hq = histList.filter(r => r.data < q.data).slice(-7).map(r => r.v.AX).filter(fin);
+          const axHq = media(hq) || 7.7;
+          ratios.push(f.v.R / (q.v.R / q.v.AX * axHq));
+        }
+        const rz = ratios.length >= 3 ? mediana(ratios) : 0.80;
+        return Math.min(1.0, R / Math.max(R, (R / ax) * axH * rz));
+      }
+      const est = histList.length ? media(histList.slice(-7).map(r => r.v.R).filter(fin)) : 52000;
+      return Math.min(1.0, R / Math.max(R, est || 52000));
+    }
+    const Q = v.Q;
+    if (fin(Q) && Q > 0) {
+      const rqs = pastPairs.filter(([q]) => fin(q.v.Q) && q.v.Q > 0).map(([q, f]) => f.v.R / q.v.Q).slice(-10);
+      const cal = rqs.length >= 3 ? clamp(mediana(rqs), 0.85, 1.05) : 0.965;
+      return Math.min(1.0, R / Math.max(R, Q * cal));
+    }
+    const est = histList.length ? media(histList.slice(-7).map(r => r.v.R).filter(fin)) : 50500;
+    return Math.min(1.0, R / Math.max(R, est || 50500));
+  }
+  function normSig(obj, histList, c, turno) {
+    const x = obj.v && obj.v[c];
+    if (!fin(x)) return null;
+    if (turno === 'T2') return x;
+    const grp = CARNES.includes(c) ? CARNES : IT;
+    const bp = grp.reduce((s, it) => s + (fin(obj.v[it]) ? obj.v[it] : 0), 0);
+    const hb = media(histList.slice(-10).map(r => grp.reduce((s, it) => s + (fin(r.v[it]) ? r.v[it] : 0), 0)));
+    return (bp > 20 && hb > 0) ? x * hb / bp : x;
+  }
+
+  /* ---------- motor de ponto v3 (causal, sem vazamento) ---------- */
+  function predPonto(p, c, allFinals, allPrevias, memoPt) {
+    const key = (p.id || p.data + '|' + p.turno + '|' + p.v.R) + '|' + c;
+    if (memoPt.has(key)) return memoPt.get(key);
+    const histF = antes(allFinals, p.turno, p.data);
+    const mu = baseLevel(histF, c);
+    if (!fin(mu)) { memoPt.set(key, null); return null; }
+
+    const pastPrevs = (allPrevias || []).filter(q => q && q.data < p.data && q.turno === p.turno && q.v);
+    const pastPairs = [];
+    for (const q of pastPrevs) {
+      const fq = finalDe(allFinals, q);
+      if (fq && q.baseAbate !== 'total' && !sameFinalLike(q, fq)) pastPairs.push([q, fq]);
+    }
+    const progP = estProgCausal(p, histF, pastPairs);
+    const x = p.v && p.v[c];
+    if (!fin(x)) {
+      const r0 = { y: mu, mu, prog: progP, nCasos: 0, biasHat: 0, wSig: 0, intra: false };
+      memoPt.set(key, r0); return r0;
+    }
+
+    const sVal = normSig(p, histF, c, p.turno);
+    const vp = [];
+    for (const [q, f] of pastPairs) {
+      if (!fin(q.v[c]) || !fin(f.v[c])) continue;
+      const hq = histF.filter(r => r.data < q.data);
+      if (hq.length < 3) continue;
+      const muQ = baseLevel(hq, c); if (!fin(muQ)) continue;
+      const sq = normSig(q, hq, c, p.turno);
+      const ppq = pastPairs.filter(([q2]) => q2.data < q.data);
+      const pq = estProgCausal(q, hq, ppq);
+      vp.push({ data: q.data, prog: pq, muQ, sQ: sq, yQ: f.v[c] });
+    }
+    const dc = new Map();
+    for (const r of vp) dc.set(r.data, (dc.get(r.data) || 0) + 1);
+    const dsSorted = [...dc.keys()].sort(), nDates = dsSorted.length;
+
+    let yHat, biasHat = 0, wSig = 0.25;
+    if (nDates < 3) {
+      yHat = 0.75 * mu + 0.25 * sVal;
+    } else {
+      const drank = new Map();
+      dsSorted.forEach((d, idx) => drank.set(d, nDates - 1 - idx));
+      let sw = 0, sw2 = 0, sWG = 0, sGapG = 0, sGapL = 0, sY2 = 0;
+      const ws = [], ys = [], gaps = [];
+      for (const r of vp) {
+        const wd = 1.0 / dc.get(r.data);
+        const wk = Math.exp(-0.5 * ((r.prog - progP) / 0.20) ** 2);
+        const wr = Math.pow(0.5, drank.get(r.data) / 16.0);
+        const w = wd * (0.25 + 0.75 * wk) * wr;
+        const yv = r.yQ - r.muQ, gv = r.yQ - r.sQ;
+        ws.push(w); ys.push(yv); gaps.push(gv);
+        sw += w; sw2 += w * w;
+        sGapL += w * gv; sY2 += w * yv * yv;
+        sWG += wd; sGapG += wd * gv;
+      }
+      const biasLoc = sGapL / sw, biasGlob = sGapG / sWG;
+      const nEff = (sw * sw) / Math.max(sw2, 1e-12);
+      biasHat = ((nEff * biasLoc + 3.0 * biasGlob) / (nEff + 3.0)) * (nDates / (nDates + 2.0));
+      const sDeb = sVal + biasHat;
+      let sMseS = 0;
+      for (let i = 0; i < vp.length; i++) sMseS += ws[i] * (gaps[i] - biasLoc) ** 2;
+      const mseS = sMseS / sw, mseMu = sY2 / sw;
+      const wEB = mseMu / Math.max(1e-6, mseMu + mseS);
+      wSig = clamp(0.55 * wEB + 0.45 * (0.25 + 0.70 * progP), 0.15, 0.90) * (nDates / (nDates + 2.5));
+      yHat = (1 - wSig) * mu + wSig * sDeb;
+    }
+
+    // Progressão intraturno: quando há prévia anterior do mesmo dia/turno com S menor
+    let intra = false;
+    const sameShift = (allPrevias || [])
+      .filter(q => q && q.data === p.data && q.turno === p.turno && q.v && fin(q.v.R) && q.v.R < p.v.R && fin(q.v.S) && fin(q.v[c]))
+      .sort((a, b) => a.v.R - b.v.R);
+    if (sameShift.length) {
+      const qPrev = sameShift[sameShift.length - 1];
+      if (p.v.S > qPrev.v.S * 1.15) {
+        const dS = p.v.S - qPrev.v.S;
+        const yMarg = clamp((x * p.v.S - qPrev.v[c] * qPrev.v.S) / dS, Math.max(0, mu - 4.0), mu + 4.0);
+        const wm = 0.10 * progP;
+        yHat = (1 - wm) * yHat + wm * yMarg;
+        intra = true;
+      }
+    }
+    yHat = clamp(yHat, 0, 40);
+    const out = { y: yHat, mu, prog: progP, nCasos: nDates, biasHat, wSig, intra };
+    memoPt.set(key, out);
+    return out;
+  }
+
+  /* ---------- confiança: faixa heteroscedástica e chance ---------- */
   function oscHist(finals, t, dia, k) {
     const rs = antes(finals, t, dia).filter(r => fin(r.v[k])); const e = [];
     rs.forEach((r, i) => { if (i >= 3) e.push(r.v[k] - mediana(rs.slice(Math.max(0, i - 7), i).map(x => x.v[k]))); });
     return e.length ? Math.sqrt(e.reduce((s, x) => s + x * x, 0) / e.length) : null;
   }
-  function confianca(E, p, c, y, meta, finals, previas, memo) {
+  const scaleProg = pg => Math.max(0.55, 1.0 - 0.35 * (pg - 0.55));
+  function confianca(p, c, y, progP, meta, finals, previas, memoPt) {
     const dias = new Map();
     for (const q of previas || []) {
-      if (!q || q.turno !== p.turno || q.data >= p.data || !q.v) continue;
-      const f = finalDe(finals, q); if (!f || !fin(f.v[c]) || !(f.v.R > q.v.R) || (fin(q.v.AI) && q.v.AI === f.v.AI)) continue;
-      const k = (q.id || q.data + q.v.R) + '|' + c;
-      let pr = memo.get(k);
-      if (pr === undefined) { const cd = E.candidates(q, c, finals, previas); pr = fin(cd.ensemble) ? cd.ensemble : null; memo.set(k, pr); }
-      if (pr == null) continue;
+      if (!q || q.turno !== p.turno || q.data >= p.data || !q.v || q.baseAbate === 'total') continue;
+      const f = finalDe(finals, q); if (!f || !fin(f.v[c]) || sameFinalLike(q, f)) continue;
+      const res = predPonto(q, c, finals, previas, memoPt);
+      if (!res || !fin(res.y)) continue;
+      const errStd = (f.v[c] - res.y) / scaleProg(res.prog);
       if (!dias.has(q.data)) dias.set(q.data, []);
-      dias.get(q.data).push((pr - f.v[c]) ** 2);
+      dias.get(q.data).push(errStd * errStd);
     }
     const ds = [...dias.keys()].sort().slice(-30), n = ds.length, N0 = 3;
     const msr = ds.map(d => media(dias.get(d)));
     const s0 = oscHist(finals, p.turno, p.data, c) || Math.max(Math.abs(meta) * 0.02, 0.02);
-    const sigma = Math.sqrt((msr.reduce((s, x) => s + x, 0) + N0 * s0 * s0) / (n + N0)), nu = n + N0 - 1;
+    const sigma = Math.sqrt((msr.reduce((s, x) => s + x, 0) + N0 * s0 * s0) / (n + N0)) * scaleProg(progP);
+    const nu = n + N0 - 1;
     const q95 = tInv(0.95, nu);
     return { sigma, nu, nDias: n, min: Math.max(0, y - q95 * sigma), max: y + q95 * sigma, chance: 1 - tCDF((meta - y) / sigma, nu) };
   }
 
   /* ---------- previsão completa ---------- */
   function prever(E, p, finals, previas, cfg = {}, memo = new Map()) {
-    const prior = (previas || []).filter(q => q && q.data < p.data);
-    const vol = volume(p, finals, prior), itens = [];
+    const prior = (previas || []).filter(q => q && (q.data < p.data || (q.data === p.data && q.turno === p.turno && q.v && q.v.R < p.v.R)));
+    const pastOnly = prior.filter(q => q.data < p.data);
+    const vol = volume(p, finals, pastOnly), itens = [];
     const nHist = antes(finals, p.turno, p.data).length;
     for (const [c, nome, metaPadrao, cxPadrao] of E.ITEMS) {
       if (!IT.includes(c)) continue;
       const total = p.baseAbate === 'total' && fin(p.v && p.v[c]);
-      const cd = total ? { ensemble: p.v[c] } : E.candidates(p, c, finals, prior); if (!fin(cd.ensemble)) continue;
-      const meta = fin(p.metas && p.metas[c]) ? p.metas[c] : metaPadrao, y = cd.ensemble;
-      // abate total confirmado: projeção = observado, sem regressão; não há incerteza de volume nem chance estimada
-      const cf = total ? { sigma: 0, nu: null, nDias: 0, min: y, max: y, chance: y >= meta ? 1 : 0 } : confianca(E, p, c, y, meta, finals, prior, memo);
+      const pt = total ? { y: p.v[c], prog: 1.0, nCasos: 0, biasHat: 0, wSig: 1, intra: false } : predPonto(p, c, finals, prior, memo);
+      if (!pt || !fin(pt.y)) continue;
+      const meta = fin(p.metas && p.metas[c]) ? p.metas[c] : metaPadrao, y = pt.y;
+      const cf = total ? { sigma: 0, nu: null, nDias: 0, min: y, max: y, chance: y >= meta ? 1 : 0 } : confianca(p, c, y, pt.prog, meta, finals, prior, memo);
       const cx = cfg.caixas && fin(cfg.caixas[c]) ? cfg.caixas[c] : cxPadrao;
       const kg = y * vol.kg / 100, saldoKg = (y - meta) * vol.kg / 100;
       itens.push({ c, nome, meta, previa: fin(p.v[c]) ? p.v[c] : null, semApontamento: !fin(p.v[c]), rendimento: y, min: cf.min, max: cf.max, nivelFaixa: 0.9,
         chanceMeta: cf.chance, sigma: cf.sigma, nCalibracao: cf.nDias, emCalibracao: total ? false : cf.nDias < 5, turnoCompleto: total, kg, caixas: cx > 0 ? kg / cx : null, pesoCaixa: cx || null,
-        saldoKg, saldoCx: cx > 0 ? saldoKg / cx : null });
+        saldoKg, saldoCx: cx > 0 ? saldoKg / cx : null, progUsado: pt.prog, intraturno: pt.intra });
     }
     if (vol.abateTotalConfirmado) vol.avisos.push('Abate total confirmado: projeção = observado do PDF, sem regressão ao histórico.');
     else {
-      const rqs = prior.filter(q => q && !q.retrospectiva && q.turno === p.turno && q.v && q.v.Q > 0 && finalDe(finals, q)).map(q => q.v.R / q.v.Q);
+      const rqs = pastOnly.filter(q => q && !q.retrospectiva && q.turno === p.turno && q.v && q.v.Q > 0 && finalDe(finals, q)).map(q => q.v.R / q.v.Q);
       const rqMax = rqs.length ? Math.max(...rqs) : null, rq = p.v && p.v.Q > 0 ? p.v.R / p.v.Q : null;
-      if (rqMax != null && rq != null && rq > rqMax) vol.avisos.push('Prévia fora do domínio calibrado: R/Q=' + (100 * rq).toFixed(1) + '% e nenhuma prévia gravada com final passou de ' + (100 * rqMax).toFixed(1) + '%. A projeção por regressão ao histórico pode não refletir turno quase completo; sem confirmação de abate total, a chance e a faixa não têm calibração para este ponto.');
+      if (rqMax != null && rq != null && rq > rqMax) vol.avisos.push('Prévia fora do domínio calibrado: R/Q=' + (100 * rq).toFixed(1) + '% e nenhuma prévia gravada com final passou de ' + (100 * rqMax).toFixed(1) + '%. A projeção pode não refletir turno quase completo; sem confirmação de abate total, a chance e a faixa não têm calibração para este ponto.');
     }
     return { versao: VERSAO, data: p.data, turno: p.turno, status: nHist >= 4 ? 'estimativa' : 'historico-insuficiente', nHistorico: nHist, volume: vol, itens,
+      metodo: 'Motor v3: normalização sem CMS/Dorso no T1, apontamento direto no T2, viés condicional ao avanço do turno, progressão intraturno e banda heteroscedástica t.',
       condicao: vol.abateTotalConfirmado ? 'Valores observados na prévia com abate total confirmado; produto parado ainda pode mudar o fechamento final.' : 'Projeção para processo contínuo até o fim do turno, sem quebras de equipamento, paradas ou mudança de lote. Não é garantia.' };
   }
   function comparar(fc, final) {
@@ -7943,7 +8095,7 @@ function pvFimNaoConfirmado(p, f) { return !pvTotal(p) && !!f && f.volume && Mat
 function pvAvisoDominio(p) {
   // Leitura apenas: compara com as prévias gravadas que já têm final. Não recalcula nem altera snapshots.
   if (!p || pvTotal(p) || !(p.v && p.v.Q > 0)) return '';
-  const rqs = pvTodos().filter(q => q.id !== p.id && !q.retrospectiva && q.turno === p.turno && q.v && q.v.Q > 0 && pvFinalDe(q)).map(q => q.v.R / q.v.Q);
+  const rqs = pvTodos().filter(q => q.id !== p.id && q.data < p.data && !q.retrospectiva && q.turno === p.turno && q.v && q.v.Q > 0 && pvFinalDe(q)).map(q => q.v.R / q.v.Q);
   if (!rqs.length) return '';
   const mx = Math.max(...rqs), rq = p.v.R / p.v.Q;
   return rq > mx ? `Esta prévia está com ${N(100 * rq, 1)}% do programado (R/Q) e nenhuma prévia gravada com final passou de ${N(100 * mx, 1)}%. A projeção por regressão ao histórico não foi calibrada para um turno tão avançado, e a chance e a faixa abaixo não têm calibração para este ponto.` : '';
@@ -10363,7 +10515,26 @@ button,a,.pchip,.leaf{-webkit-tap-highlight-color:transparent}
 
 /* rodapés das listas: texto em até duas linhas */
 [data-narrow] .lfoot .lf-n { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.25; }
+/* ---------- tela RDO x Radar (correlação e simulador) ---------- */
+.rx-bar{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.rx-bar select{max-width:14rem}
+.rx-alerta{display:flex;align-items:flex-start;gap:.6rem;padding:.55rem .8rem;border:2px solid var(--flat);background:var(--flatbg);border-radius:10px;font-size:.76rem;line-height:1.4;margin-bottom:.45rem}
+.rx-alerta.hot{border-color:var(--bad);background:var(--badbg)}
+.rx-alerta svg{width:1.1rem;height:1.1rem;flex:none;margin-top:.1rem}
+.rx-r{display:grid;grid-template-columns:minmax(0,1fr) 4.4rem 5.5rem 5.4rem;gap:.45rem;align-items:center;padding:0 .55rem;border-radius:9px;cursor:pointer;border:1.5px solid transparent}
+.rx-r:hover{background:var(--panel2)}
+.rx-r.on{background:var(--accbg);border-color:var(--acc)}
+.rx-r+.rx-r{border-top:1px dashed var(--line)}
+.rx-r .rk-name b{font-size:.79rem}
+.rx-r .rk-name span{font-size:.66rem}
+.rx-sim-row{display:grid;grid-template-columns:minmax(0,1fr) 5.5rem 6.2rem 5.2rem;gap:.4rem;align-items:center;padding:.32rem .45rem;border-radius:8px;font-size:.75rem}
+.rx-sim-row+.rx-sim-row{border-top:1px dashed var(--line)}
+.rx-ctrl{display:flex;flex-wrap:wrap;gap:.45rem;align-items:center;margin-bottom:.5rem}
+.rx-slider{display:flex;align-items:center;gap:.5rem;width:100%;margin:.25rem 0 .45rem;font-size:.74rem}
+.rx-slider input[type=range]{flex:1;accent-color:var(--acc)}
+@media(max-width:640px){.rx-r{grid-template-columns:minmax(0,1fr) 4rem 4.8rem}.rx-r .rx-t12{display:none}.rx-sim-row{grid-template-columns:minmax(0,1fr) 4.8rem 5.2rem}.rx-sim-row .rx-cx{display:none}}
 </style>
+
 </head>
 <body>
 <div id="bgfx"><i></i><i></i><i></i></div>
@@ -11904,7 +12075,7 @@ if (typeof module !== 'undefined') module.exports = RECO;
         if (j >= nP - KEEP) contrib[j] = { th: theta, x: fx.x, slow: st.slow, oo: fx.oo, w: w };
       }
       if (fx) {
-        var y = p.v - st.slow;
+        var yRaw = p.v - st.slow; var hub = Math.max(4.0, 2.5 * Math.sqrt(Math.max(st.slow, 1) + 1)); var y = Math.abs(yRaw) > hub ? Math.sign(yRaw) * hub : yRaw;
         for (var q1 = 0; q1 < K; q1++) {
           var xq = fx.x[q1]; if (q1 > 0 && Math.abs(xq) > 0.05) nz[q1]++;
           b[q1] = LAM * b[q1] + xq * y;
@@ -12148,7 +12319,8 @@ if (typeof module !== 'undefined') module.exports = RECO;
     { id: 'viradas', name: 'Viradas de patamar', short: 'Viradas', icon: 'steps', key: '', grp: 'Padrões & evolução', nw: 1 },
     { id: 'persist', name: 'Persistência dos desvios', short: 'Persistência', icon: 'hourglass', key: '', nw: 1 },
     { id: 'familias', name: 'Famílias de desvios', short: 'Famílias', icon: 'constel', key: '', nw: 1 },
-    { id: 'corrida', name: 'Corrida dos desvios', short: 'Corrida', icon: 'race', key: '', nw: 1 }
+    { id: 'corrida', name: 'Corrida dos desvios', short: 'Corrida', icon: 'race', key: '', nw: 1 },
+    { id: 'rdox', name: 'RDO × Radar', short: 'RDO × Radar', icon: 'bridge', key: '', nw: 1 }
   ];
   var STL = { worse: 'Piorou', better: 'Melhorou', flat: 'Estável', none: 'Sem comparação' };
 
@@ -12158,7 +12330,7 @@ if (typeof module !== 'undefined') module.exports = RECO;
     band: load('band2', 0), cmp: load('cmp', 'week'), mach: load('mach', false), q: '', open: load('open', { _p: true }),
     ttp: 'dia', ttm: 'geral', wkA: null, wkB: null, wks: 'valor', mA: null, mB: null, calm: 'geral', live: true, tv: false,
     focus: null, ov: null, pg: null, dcmp: null, scope: load('scope', 'corte'), antesIso: load('antesIso', ''),
-    projT: null, tmD: null, tmT: null,
+    projT: null, tmD: null, tmT: null, rxInd: 'BE', rxLag: '0', rxItem: null, rxVal: null,
     vrSel: null, vrWin: load('vrWin', 'tudo'), psSel: null, fmSel: null, crMode: load('crMode', 'mes'), crMet: load('crMet', 'pct'), crF: null, cxTT: 'linha', cxW: 'linha', cxM: 'linha'
   };
   document.documentElement.setAttribute('data-theme', S.theme);
@@ -12835,10 +13007,11 @@ if (typeof module !== 'undefined') module.exports = RECO;
     var n1 = cntT(0), n2 = cntT(1);
     var ctl = segHtml('tt-p', [['dia', 'Dia'], ['semana', 'Semana'], ['mes', 'Mês']], S.ttp);
     var ctl2 = segHtml('tt-m', [['geral', 'Taxa geral'], ['item', it ? 'Item: ' + (it.title.length > 14 ? it.title.slice(0, 13) + '…' : it.title) : 'Item'], ['cx', 'De onde vem']], S.ttm);
+    var sigCnt = 0; rows.forEach(function (r) { if (r.it.excl) return; var s1 = DS.sum(r.it.id, P.d0, P.d1, [0]), s2 = DS.sum(r.it.id, P.d0, P.d1, [1]); if (s1[0] >= 20 && s2[0] >= 20 && INTEL.rPval && Math.abs(r.b - r.a) >= 1.0) { var p1 = s1[1]/s1[0], p2 = s2[1]/s2[0], pp = (s1[1]+s2[1])/(s1[0]+s2[0]), se = Math.sqrt(Math.max(1e-9, pp*(1-pp)*(1/s1[0]+1/s2[0]))); if (Math.abs(p1-p2)/se >= 1.96) sigCnt++; } });
     var sc = '<div style="display:grid;grid-template-columns:1fr auto 1fr;gap:.6rem;align-items:center;height:100%">' +
       '<div class="vs-side st-t1" style="background:var(--cbg)"><div class="tl">T1</div><div class="big num">' + (g1 ? cu(g1.v, 'p') : '—') + '</div><div class="sm">taxa geral · ' + n1 + ' itens ≥ 10%</div></div><div class="vs-mid">VS</div>' +
       '<div class="vs-side st-t2" style="background:var(--cbg)"><div class="tl">T2</div><div class="big num">' + (g2 ? cu(g2.v, 'p') : '—') + '</div><div class="sm">taxa geral · ' + n2 + ' itens ≥ 10%</div></div>' +
-      '<div style="grid-column:1/4"><div style="display:flex;justify-content:space-between;font-size:.7rem;color:var(--tx3);margin-bottom:.25rem"><span>T1 pior em <b style="color:var(--t1)">' + w1 + '</b> itens</span><span>' + eq + ' empates</span><span>T2 pior em <b style="color:var(--t2)">' + w2 + '</b> itens</span></div><div class="split" style="height:.6rem"><i style="width:0;background:var(--t1)" data-w="' + (w1 / Math.max(1, w1 + w2 + eq) * 100) + '%"></i><i style="width:0;background:var(--line2)" data-w="' + (eq / Math.max(1, w1 + w2 + eq) * 100) + '%"></i><i style="width:0;background:var(--t2)" data-w="' + (w2 / Math.max(1, w1 + w2 + eq) * 100) + '%"></i></div></div></div>';
+      '<div style="grid-column:1/4"><div style="display:flex;justify-content:space-between;font-size:.7rem;color:var(--tx3);margin-bottom:.25rem"><span>T1 pior em <b style="color:var(--t1)">' + w1 + '</b> itens</span><span>' + eq + ' empates</span><span>T2 pior em <b style="color:var(--t2)">' + w2 + '</b> itens</span></div><div class="split" style="height:.6rem"><i style="width:0;background:var(--t1)" data-w="' + (w1 / Math.max(1, w1 + w2 + eq) * 100) + '%"></i><i style="width:0;background:var(--line2)" data-w="' + (eq / Math.max(1, w1 + w2 + eq) * 100) + '%"></i><i style="width:0;background:var(--t2)" data-w="' + (w2 / Math.max(1, w1 + w2 + eq) * 100) + '%"></i></div>' + (sigCnt ? '<div style="font-size:.66rem;color:var(--tx3);margin-top:.25rem;text-align:center"><b>' + sigCnt + '</b> diferença(s) estatística(s) (p &lt; 0,05 pelo tamanho das amostras)</div>' : '') + '</div></div>';
     mount(pnl(0, 'Item a item: T1 × T2', P.label + ' · ' + rows.length + ' itens com os dois turnos · ordenado pelo maior valor', '', { icon: 'turno', bid: 't-db', info: 't-db', short: 'Item a item', mh: 24, fw: 2, right: ctl }) +
       '<div style="display:grid;grid-template-rows:auto minmax(0,1fr);gap:.8rem;min-height:0">' +
       pnl(1, 'Placar do período', P.label, sc, { icon: 'split', key: 't-placar', info: 't-placar', short: 'Placar', mh: 12 }) +
@@ -12892,7 +13065,8 @@ if (typeof module !== 'undefined') module.exports = RECO;
     var opts = DS.weeks.slice().reverse().map(function (w) { return '<option value="' + w.key + '">' + w.label + '</option>'; }).join('');
     var ctl = '<span class="vs-lbl" style="color:var(--acc)">A</span><select class="sel" id="w-a">' + opts + '</select><span class="vs-lbl">× B</span><select class="sel" id="w-b">' + opts + '</select>';
     var ctl2 = segHtml('w-s', [['valor', 'Maior valor'], ['piora', 'Maior piora'], ['melhora', 'Maior melhora']], S.wks);
-    mount(pnl(0, 'Semana × semana, item a item', TL() + ' · A = ' + wA.label + ' · B = ' + wB.label, '', { icon: 'semana', bid: 'w-list', info: 'w-list', short: 'Item a item', mh: 24, fw: 2, right: ctl2 }) +
+    var wWorse = rows.filter(function (r) { return r.st === 'worse'; }).length, wBetter = rows.filter(function (r) { return r.st === 'better'; }).length;
+    mount(pnl(0, 'Semana × semana, item a item', TL() + ' · A = ' + wA.label + ' · B = ' + wB.label + ' · ' + wWorse + ' pioraram · ' + wBetter + ' melhoraram', '', { icon: 'semana', bid: 'w-list', info: 'w-list', short: 'Item a item', mh: 24, fw: 2, right: ctl2 }) +
       '<div style="display:grid;grid-template-rows:minmax(0,1.25fr) minmax(0,1fr);gap:.8rem;min-height:0">' +
       pnl(1, 'Semana A dia a dia', 'mapa de calor · cada célula = % do item no dia', '', { icon: 'calendario', bid: 'w-hm', info: 'w-hm', short: 'Mapa da semana', mh: 18, right: ctl }) +
       pnl(2, S.cxW === 'cx' ? 'De onde veio a diferença' : 'Evolução semanal da taxa geral', S.cxW === 'cx' ? 'quanto cada item somou na taxa geral · B → A' : 'A em destaque · B contornada', '', { icon: S.cxW === 'cx' ? 'waterfall' : 'trend', bid: 'w-bars', key: 'w-bars', info: S.cxW === 'cx' ? 'g-cascata' : 'w-bars', short: 'Evolução semanal', mh: 14, right: segHtml('w-cx', [['linha', 'Evolução'], ['cx', 'De onde veio']], S.cxW) }) + '</div>',
@@ -13330,6 +13504,10 @@ if (typeof module !== 'undefined') module.exports = RECO;
     'pr-quad': { t: 'Mapa de prioridades', x: 'Cada bolinha é um item. <b>Para a direita</b>: passa de 10% em mais dias. <b>Para cima</b>: tendência de alta (piorando). Bolinha maior = mais peças com desvio. O canto de cima à direita (vermelho) é o que está crônico e piorando: comece por ali.', k: ['mapa de prioridades', 'quadrante'] },
     'pr-setor': { t: 'Onde se concentra', x: 'Soma das peças com desvio dos itens prioritários por setor, no período. Mostra qual área concentra o problema.', k: ['setor', 'setores'] },
     'v-lab': { t: 'Laboratório de causas', x: 'Procura, nos dados, outros itens e processos que andam junto com o item escolhido: o que costuma piorar ao mesmo tempo, o que vem antes na linha e o que vem depois.', k: ['laboratorio', 'laboratório', 'causas'] },
+    'v-rdox': { t: 'RDO × Radar', x: 'Cruza em tempo real os desvios avaliados no Radar com os fechamentos reais do RDO (em modo somente leitura, sem misturar as bases). Separa <b>achados fortes</b> (consistentes após correção de múltiplas comparações e Leave-One-Out) de <b>pistas observadas</b>.', k: ['rdo', 'correlacao', 'correlação', 'simulador'] },
+    'rx-rank': { t: 'Desvios ligados ao RDO', x: 'Correlação de Spearman (r) entre o % de desvio do Radar e o indicador final do RDO nos mesmos turnos (ou do T1 no Radar para o T2 no RDO). <b>Achado forte</b> exige q &lt; 0,05 (Benjamini-Hochberg) e estabilidade ao remover qualquer dia isolado (LOO).', k: ['spearman', 'achado', 'pista'] },
+    'rx-scat': { t: 'Dispersão Radar × RDO', x: 'Cada ponto é um turno (azul = T1, laranja = T2). A reta mostra a tendência linear; a linha vertical marca 10% no Radar e a horizontal mostra a meta do RDO.', k: ['dispersao', 'dispersão'] },
+    'rx-sim': { t: 'Simulador Radar → RDO', x: 'Estima como variações no desvio selecionado se associam aos cortes e indicadores do RDO (em p.p., kg e caixas). Baseado em regressão linear encolhida com faixa de erro-padrão. <b>Correlação não prova causa</b>: use como guia operacional.', k: ['simulador', 'e se'] },
     'v-sentinela': { t: 'Sentinela', x: 'Um vigia estatístico que olha turno a turno e avisa quando um item sai do padrão dele mesmo: picos, subidas seguidas, mudança de patamar, risco de passar de 10%.', k: ['sentinela', 'alertas'] },
 
     /* ---------- conceitos gerais ---------- */
@@ -15302,6 +15480,294 @@ if (typeof module !== 'undefined') module.exports = RECO;
     wireSeg('sim-l', function (v) { S.simL = v; pjSim(host, t); });
     animateIn(host);
   }
+  /* ======================= TELA: RDO × RADAR (CORRELAÇÃO & SIMULADOR) ======================= */
+  var RDO_META = {
+    BE: { n: 'Filé (BE)', meta: 26.5, cx: 20, unit: '%', dir: 1 },
+    BD: { n: 'Coxa/sobrecoxa (BD)', meta: 26.5, cx: 20, unit: '%', dir: 1 },
+    BG: { n: 'Coxinha da asa (BG)', meta: 4.6, cx: 20, unit: '%', dir: 1 },
+    BH: { n: 'Meio da asa (BH)', meta: 2.8, cx: 20, unit: '%', dir: 1 },
+    BI: { n: 'Ponta da asa (BI)', meta: 0.93, cx: 20, unit: '%', dir: 1 },
+    BL: { n: 'Fígado (BL)', meta: 1.6, cx: 20, unit: '%', dir: 1 },
+    BM: { n: 'Moela (BM)', meta: 1.1, cx: 20, unit: '%', dir: 1 },
+    BN: { n: 'Coração (BN)', meta: 0.48, cx: 20, unit: '%', dir: 1 },
+    BO: { n: 'Pés (BO)', meta: 2.85, cx: 16, unit: '%', dir: 1 },
+    BA: { n: 'Rend. cortes (BA)', meta: 83.16, cx: 0, unit: '%', dir: 1 },
+    AJ: { n: 'Rend. industrial (AJ)', meta: 81.6, cx: 0, unit: '%', dir: 1 },
+    BX: { n: 'OEE (BX)', meta: 81.19, cx: 0, unit: '%', dir: 1 },
+    U:  { n: 'Peso médio (U)', meta: null, cx: 0, unit: 'kg', dir: 0 }
+  };
+  var RDX = { state: 'idle', base: null, err: '', sig: '', cache: null };
+  function rdoBaseUrls() {
+    var urls = [];
+    try {
+      var orig = window.__RDO_ORIGEM || (window.parent !== window ? parent.location.href : location.href);
+      if (orig && !/^about:/i.test(orig)) {
+        var u = new URL(orig);
+        if (/\.github\.io$/i.test(u.hostname)) {
+          var seg = u.pathname.split('/').filter(Boolean)[0];
+          var proj = seg && !/\.html?$/i.test(seg) ? seg + '/' : '';
+          urls.push(u.origin + '/' + proj + 'dados/rdo-base.json');
+        }
+        urls.push(new URL('dados/rdo-base.json', u.href).href);
+      }
+    } catch (e) { }
+    urls.push('https://raw.githubusercontent.com/Drill23/rdo-rondon/main/dados/rdo-base.json');
+    return urls.filter(function (x, i, a) { return x && a.indexOf(x) === i; });
+  }
+  function loadRdoBase(force) {
+    if (RDX.state === 'loading') return;
+    if (RDX.base && !force) return;
+    RDX.state = 'loading'; RDX.err = '';
+    var urls = rdoBaseUrls(), idx = 0;
+    function nextUrl() {
+      if (idx >= urls.length) {
+        try {
+          var c = JSON.parse(localStorage.getItem('rdo.cacheRemoto') || 'null');
+          if (c && Array.isArray(c.registros) && c.registros.length) {
+            RDX.base = c; RDX.state = 'ok'; RDX.cache = null; if (S.view === 'rdox') render(false); return;
+          }
+        } catch (e) { }
+        RDX.state = 'err'; RDX.err = 'Não foi possível ler dados/rdo-base.json.'; if (S.view === 'rdox') render(false); return;
+      }
+      var u = urls[idx++] + (urls[idx - 1].indexOf('?') < 0 ? '?' : '&') + 't=' + Date.now();
+      fetch(u, { cache: 'no-store' }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }).then(function (j) {
+        if (!j || !Array.isArray(j.registros)) throw new Error('Formato inválido');
+        RDX.base = j; RDX.state = 'ok'; RDX.cache = null; if (S.view === 'rdox') render(false);
+      }).catch(nextUrl);
+    }
+    nextUrl();
+  }
+  function ranksOf(arr) {
+    var idx = arr.map(function (v, i) { return { v: v, i: i }; }).sort(function (a, b) { return a.v - b.v; });
+    var rk = new Array(arr.length), k = 0;
+    while (k < idx.length) {
+      var j = k; while (j < idx.length && idx[j].v === idx[k].v) j++;
+      var avg = (k + 1 + j) / 2;
+      for (var q = k; q < j; q++) rk[idx[q].i] = avg;
+      k = j;
+    }
+    return rk;
+  }
+  function spearman(xs, ys) {
+    if (xs.length < 10) return { r: 0, p: 1 };
+    var rx = ranksOf(xs), ry = ranksOf(ys), pc = INTEL.pearson(rx, ry);
+    return { r: pc.r, p: INTEL.rPval(pc.r, xs.length) };
+  }
+  function computeRdoRadar(lag) {
+    if (!RDX.base || !DS || !DS.nD) return null;
+    var key = DS.nD + '|' + DS.nI + '|' + RDX.base.registros.length + '|' + lag;
+    if (RDX.cache && RDX.cache.key === key) return RDX.cache.res;
+    var rdoMap = {}, avgS = 0, nS = 0;
+    RDX.base.registros.forEach(function (r) {
+      if (!r || r.demo || r.tipo === 'previa' || !r.v || !(r.v.R > 40000) || !(r.v.S > 0)) return;
+      rdoMap[r.data + '|' + r.turno] = r;
+      avgS += r.v.S; nS++;
+    });
+    avgS = nS ? avgS / nS : 155000;
+    var pairs = [];
+    for (var d = 0; d < DS.nD; d++) {
+      var iso = DS.dates[d];
+      if (lag === '1') {
+        if (DS.has(d, [0]) && rdoMap[iso + '|T2']) pairs.push({ d: d, tr: 0, iso: iso, tn: 'T2', rdo: rdoMap[iso + '|T2'] });
+      } else {
+        if (DS.has(d, [0]) && rdoMap[iso + '|T1']) pairs.push({ d: d, tr: 0, iso: iso, tn: 'T1', rdo: rdoMap[iso + '|T1'] });
+        if (DS.has(d, [1]) && rdoMap[iso + '|T2']) pairs.push({ d: d, tr: 1, iso: iso, tn: 'T2', rdo: rdoMap[iso + '|T2'] });
+      }
+    }
+    var inds = Object.keys(RDO_META);
+    var links = [], alerts = [];
+    var L = latest();
+    DS.items.forEach(function (it) {
+      if (it.kind !== 'def') return;
+      var obs = [];
+      pairs.forEach(function (pr) {
+        var am = DS.AM[pr.tr][it.id * DS.nD + pr.d], nc = DS.NC[pr.tr][it.id * DS.nD + pr.d];
+        if (am > 0) obs.push({ pr: pr, x: nc / am * 100 });
+      });
+      if (obs.length < 20) return;
+      // Check variance
+      var xsAll = obs.map(function (o) { return o.x; });
+      var mx = INTEL.mean(xsAll), vx = 0; xsAll.forEach(function (v) { vx += (v - mx) * (v - mx); });
+      if (vx / obs.length < 1e-4) return;
+      inds.forEach(function (ind) {
+        var pts = [];
+        obs.forEach(function (o) {
+          var yv = o.pr.rdo.v[ind];
+          if (typeof yv === 'number' && isFinite(yv)) pts.push({ x: o.x, y: yv, iso: o.pr.iso, tn: o.pr.tn, S: o.pr.rdo.v.S, meta: (o.pr.rdo.metas && o.pr.rdo.metas[ind]) || RDO_META[ind].meta });
+        });
+        if (pts.length < 20) return;
+        var xs = pts.map(function (p) { return p.x; }), ys = pts.map(function (p) { return p.y; });
+        var sp = spearman(xs, ys), pc = INTEL.pearson(xs, ys);
+        if (!isFinite(sp.r)) return;
+        // Leave-One-Out stability
+        var looMin = sp.r, sameSign = true;
+        for (var k = 0; k < pts.length; k++) {
+          var xk = xs.slice(0, k).concat(xs.slice(k + 1)), yk = ys.slice(0, k).concat(ys.slice(k + 1));
+          var rk = spearman(xk, yk).r;
+          if (rk * sp.r <= 0) { sameSign = false; break; }
+          if (Math.abs(rk) < Math.abs(looMin)) looMin = rk;
+        }
+        // T1 / T2 separated
+        var x1 = [], y1 = [], x2 = [], y2 = [];
+        pts.forEach(function (p) { if (p.tn === 'T1') { x1.push(p.x); y1.push(p.y); } else { x2.push(p.x); y2.push(p.y); } });
+        var r1 = x1.length >= 10 ? spearman(x1, y1).r : null, r2 = x2.length >= 10 ? spearman(x2, y2).r : null;
+        // Robust shrunk slope + SE
+        var sxx = 0, syy = 0, sxy = 0, my = INTEL.mean(ys);
+        for (var q = 0; q < pts.length; q++) { var dx = xs[q] - mx, dy = ys[q] - my; sxx += dx * dx; syy += dy * dy; sxy += dx * dy; }
+        var slope = sxx > 0 ? sxy / (sxx * 1.25) : 0; // 20% shrinkage
+        var seResid = Math.sqrt(Math.max(0, syy - slope * sxy) / Math.max(1, pts.length - 2));
+        var seSlope = sxx > 0 ? seResid / Math.sqrt(sxx) : 0;
+        links.push({ it: it, ind: ind, n: pts.length, rs: sp.r, ps: sp.p, rp: pc.r, a: pc.a, b: pc.b, slope: slope, seSlope: seSlope, looMin: looMin, sameSign: sameSign, r1: r1, r2: r2, pts: pts, mx: mx, my: my });
+      });
+    });
+    if (links.length) {
+      var qs = INTEL.bh(links.map(function (l) { return l.ps; }));
+      links.forEach(function (l, i) {
+        l.q = qs[i];
+        l.tier = (l.q < 0.05 && l.sameSign && Math.abs(l.looMin) >= 0.30 && l.n >= 25) ? 'forte' : (l.ps < 0.05 && l.sameSign ? 'pista' : 'fraca');
+      });
+    }
+    // Check current shift alert for strong findings
+    var lt = +L.turno - 1;
+    links.filter(function (l) { return l.tier === 'forte' && l.ind !== 'U'; }).forEach(function (l) {
+      var vNow = DS.raw(l.it.id, L.d, L.d, [lt]);
+      if (vNow != null && (vNow >= 10 || vNow > l.mx * 1.4)) alerts.push({ l: l, v: vNow, d: L.d, t: lt });
+    });
+    alerts.sort(function (a, b) { return Math.abs(b.l.rs) - Math.abs(a.l.rs); });
+    var res = { key: key, nPairs: pairs.length, avgS: avgS, links: links, alerts: alerts, last: L };
+    RDX.cache = { key: key, res: res };
+    return res;
+  }
+
+  function vRdox() {
+    if (RDX.state === 'idle') loadRdoBase(false);
+    if (RDX.state === 'loading' || (!RDX.base && RDX.state !== 'err')) {
+      mount(pnl(0, 'RDO × Radar', 'carregando base do RDO (somente leitura)…', '<div class="empty"><div><b>Lendo registros finais do RDO…</b>o Radar continua separado, cruzando em tempo real no navegador.<div class="g-bar" style="width:16rem;margin:1rem auto 0"><i></i></div></div></div>', {}), 'grid-template-columns:1fr');
+      return;
+    }
+    if (RDX.state === 'err') {
+      mount(pnl(0, 'RDO × Radar', 'erro de leitura', emptyMsg('Não consegui carregar dados/rdo-base.json', esc(RDX.err) + '<div style="margin-top:.7rem"><button class="btn pri" id="rx-retry">Tentar de novo</button></div>'), {}), 'grid-template-columns:1fr');
+      post(function () { var b = $('#rx-retry'); if (b) b.onclick = function () { loadRdoBase(true); render(false); }; });
+      return;
+    }
+    var lag = S.rxLag === '1' ? '1' : '0', ind = RDO_META[S.rxInd] ? S.rxInd : 'BE';
+    var data = computeRdoRadar(lag);
+    if (!data || !data.nPairs) {
+      mount(pnl(0, 'RDO × Radar', '', emptyMsg('Sem turnos em comum ainda', 'São necessários dias com lançamento nos dois sistemas.'), {}), 'grid-template-columns:1fr');
+      return;
+    }
+    var list = data.links.filter(function (l) { return l.ind === ind; }).sort(function (a, b) { return Math.abs(b.rs) - Math.abs(a.rs); });
+    var sel = list.filter(function (l) { return l.it.id === S.rxItem; })[0] || list[0];
+    if (sel) S.rxItem = sel.it.id;
+    var nForte = data.links.filter(function (l) { return l.tier === 'forte'; }).length;
+    var nPista = data.links.filter(function (l) { return l.tier === 'pista'; }).length;
+    var alTop = data.alerts[0];
+    var alertHtml = alTop ? '<div class="rx-alerta ' + (alTop.v >= 10 ? 'hot' : '') + '">' + I('alert') + '<div><b>Atenção no último turno (T' + (alTop.t + 1) + ' ' + E.dlabelLong(DS.dates[alTop.d]) + '):</b> ' + esc(alTop.l.it.title) + ' fechou em <b>' + E.fp(alTop.v) + '</b> (média ' + E.fp(alTop.l.mx) + ') — nos dados, esse desvio tem ligação <b>forte</b> com variação em <b>' + esc(RDO_META[alTop.l.ind].n) + '</b> (r = ' + E.f1(alTop.l.rs) + ').</div></div>' : '';
+    var kpis = '<div class="kpis k4" style="grid-area:k">' +
+      '<section class="pnl kpi st-none"><div class="kl">' + I('bridge') + ' Base cruzada</div><div class="kv num">' + data.nPairs + '<small>turnos</small></div><div class="ks">' + (lag === '1' ? 'Radar T1 → RDO T2 (mesmo dia)' : 'mesmo dia e turno (T1/T2)') + '</div></section>' +
+      '<section class="pnl kpi st-' + (nForte ? 'better' : 'flat') + '"><div class="kl">' + I('check') + ' Achados fortes</div><div class="kv num">' + nForte + '</div><div class="ks">q &lt; 0,05 (FDR) e estável no Leave-One-Out</div></section>' +
+      '<section class="pnl kpi st-none"><div class="kl">' + I('spark') + ' Pistas observadas</div><div class="kv num">' + nPista + '</div><div class="ks">p &lt; 0,05, mas pede mais turnos p/ confirmar</div></section>' +
+      '<section class="pnl kpi st-' + (alTop && alTop.v >= 10 ? 'worse' : 'none') + '"><div class="kl">' + I('bolt') + ' Alerta atual</div><div class="kv" style="font-size:1.15rem;line-height:1.2">' + (alTop ? esc(alTop.l.it.title) : 'Sem desvios fortes ativos') + '</div><div class="ks">' + (alTop ? 'T' + (alTop.t + 1) + ': ' + E.fp(alTop.v) + ' → afeta ' + esc(RDO_META[alTop.l.ind].n) : 'nenhum achado forte ≥ 10% no último turno') + '</div></section></div>';
+    var indOpts = Object.keys(RDO_META).map(function (k) { return '<option value="' + k + '"' + (k === ind ? ' selected' : '') + '>' + esc(RDO_META[k].n) + '</option>'; }).join('');
+    var ctl = '<div class="rx-bar"><select class="sel" id="rx-ind" aria-label="Indicador RDO">' + indOpts + '</select>' + segHtml('rx-lag', [['0', 'Mesmo turno'], ['1', 'T1 → T2']], lag) + '</div>';
+    mount(kpis +
+      pnl(1, 'Desvios ligados a ' + esc(RDO_META[ind].n), 'ordenado pela força da correlação de Spearman · clique para ver dispersão e simular', alertHtml + '<div id="rx-list" style="flex:1;min-height:0"></div><div class="lfoot"></div>', { icon: 'raiox', cls: 'fxcol', key: 'rx-rank', info: 'rx-rank', short: 'Ranking RDO × Radar', mh: 24, fw: 2, right: ctl, style: 'grid-area:a' }) +
+      pnl(2, sel ? esc(sel.it.title) + ' × ' + esc(RDO_META[ind].n) : 'Dispersão', sel ? 'n = ' + sel.n + ' turnos · r = ' + (sel.rs >= 0 ? '+' : '−') + E.f1(Math.abs(sel.rs)) + ' · LOO mín = ' + (sel.looMin >= 0 ? '+' : '−') + E.f1(Math.abs(sel.looMin)) + ' · q = ' + (sel.q < 0.001 ? '<0,001' : E.f1(sel.q * 100) + '%') : '', '', { icon: 'trend', bid: 'rx-scat', key: 'rx-scat', info: 'rx-scat', short: 'Dispersão', mh: 18, style: 'grid-area:b', right: '<div class="legend"><span>' + dot('t1') + ' T1</span><span>' + dot('t2') + ' T2</span></div>' }) +
+      pnl(3, 'Simulador · E se…? Radar → RDO', sel ? 'impacto associativo de variar <b>' + esc(sel.it.title) + '</b> nos itens do RDO' : '', '', { icon: 'sliders', bid: 'rx-sim', key: 'rx-sim', info: 'rx-sim', short: 'Simulador', mh: 18, cls: 'scrolly', style: 'grid-area:c' }),
+      'grid-template-columns:minmax(0,1.08fr) minmax(0,1.08fr);grid-template-rows:auto minmax(0,1fr) minmax(0,1fr);grid-template-areas:"k k" "a b" "a c"');
+
+    post(function () {
+      $('#rx-ind').onchange = function () { S.rxInd = this.value; S.rxItem = null; S.rxVal = null; render(false); };
+      wireSeg('rx-lag', function (v) { S.rxLag = v; S.rxItem = null; S.rxVal = null; render(false); });
+      var host = $('#rx-list');
+      if (!list.length) { host.innerHTML = emptyMsg('Sem desvios com histórico suficiente', ''); return; }
+      var lfoot = host.parentNode.querySelector('.lfoot');
+      paged(host, list, 'rx|' + ind + '|' + lag, 2.55, 3.2, function (l, k, rh, j) {
+        var badge = l.tier === 'forte' ? '<span class="chip st-' + (l.rs * (RDO_META[ind].dir || 1) < 0 ? 'worse' : 'flat') + '">Achado forte</span>' : l.tier === 'pista' ? '<span class="chip st-none">Pista</span>' : '<span class="chip ghost st-none">Fraca</span>';
+        var t12 = (l.r1 != null ? 'T1 ' + (l.r1 >= 0 ? '+' : '−') + E.f1(Math.abs(l.r1)) : 'T1 —') + ' · ' + (l.r2 != null ? 'T2 ' + (l.r2 >= 0 ? '+' : '−') + E.f1(Math.abs(l.r2)) : 'T2 —');
+        var tip = '<div class="tt">' + esc(l.it.title) + '</div><div class="tr"><span>Spearman r</span><b>' + (l.rs >= 0 ? '+' : '−') + E.f1(Math.abs(l.rs)) + '</b></div><div class="tr"><span>LOO mínimo</span><b>' + (l.looMin >= 0 ? '+' : '−') + E.f1(Math.abs(l.looMin)) + '</b></div><div class="tr"><span>p / q (FDR)</span><b>' + fdec(l.ps, 4) + ' / ' + fdec(l.q, 3) + '</b></div><div class="tr"><span>Turnos (n)</span><b>' + l.n + '</b></div>';
+        return '<div class="rx-r' + (sel && l.it.id === sel.it.id ? ' on' : '') + '" style="height:' + rh + 'px;--k:' + j + '" data-rxid="' + l.it.id + '" data-tip="' + esc(tip) + '">' +
+          '<div class="rk-name"><b>' + esc(l.it.title) + '</b><span>' + esc(l.it.setor) + ' · n=' + l.n + '</span></div>' +
+          '<b class="num" style="color:' + (l.tier === 'forte' ? (l.rs < 0 ? 'var(--bad)' : 'var(--good)') : 'var(--tx2)') + '">' + (l.rs >= 0 ? '+' : '−') + fdec(Math.abs(l.rs), 2) + '</b>' +
+          '<span class="rx-t12 muted" style="font-size:.66rem">' + t12 + '</span>' +
+          '<span style="text-align:right">' + badge + '</span></div>';
+      }, lfoot, { note: 'correlaciona apenas registros reais (R > 40 mil aves)', goTo: sel ? Math.max(0, list.indexOf(sel)) : 0, after: function () {
+        $$('[data-rxid]', host).forEach(function (el) { el.onclick = function () { S.rxItem = +el.getAttribute('data-rxid'); S.rxVal = null; render(false); }; });
+      } });
+    });
+
+    post(function () {
+      var host = $('#rx-scat'); if (!sel || !host) return;
+      var pts = sel.pts, c = base(host, { l: 40, r: 16, t: 16, b: 26 }); if (c.iw < 50 || c.ih < 40) return;
+      var xs = pts.map(function (p) { return p.x; }), ys = pts.map(function (p) { return p.y; });
+      var xMax = Math.max(12, Math.max.apply(null, xs) * 1.12), yMin = Math.min.apply(null, ys), yMax = Math.max.apply(null, ys);
+      var mMeta = RDO_META[ind].meta; if (mMeta != null) { yMin = Math.min(yMin, mMeta); yMax = Math.max(yMax, mMeta); }
+      var yPad = (yMax - yMin) * 0.16 || 0.3;
+      var ax = axisY(c, yMin - yPad, yMax + yPad, function (v) { return fdec(v, ind === 'U' ? 2 : 1); });
+      var xf = function (v) { return c.l + Math.max(0, Math.min(1, v / xMax)) * c.iw; };
+      // Vertical 10% Radar threshold
+      if (10 <= xMax) {
+        sv('line', { x1: xf(10), x2: xf(10), y1: c.t, y2: c.t + c.ih, stroke: 'var(--thr)', 'stroke-width': 1.4, 'stroke-dasharray': '4 3' }, c.svg);
+        var t10 = sv('text', { x: xf(10) + 3, y: c.t + 10, class: 'xl' }, c.svg); t10.textContent = '10% Radar';
+      }
+      // Horizontal RDO meta
+      if (mMeta != null && mMeta >= ax.mn && mMeta <= ax.mx) {
+        sv('line', { x1: c.l, x2: c.l + c.iw, y1: ax.y(mMeta), y2: ax.y(mMeta), stroke: 'var(--good)', 'stroke-width': 1.4, 'stroke-dasharray': '5 4' }, c.svg);
+        var tm = sv('text', { x: c.l + c.iw - 2, y: ax.y(mMeta) - 4, 'text-anchor': 'end', class: 'xl' }, c.svg); tm.textContent = 'meta ' + fdec(mMeta, 2); tm.style.fill = 'var(--good)';
+      }
+      // Regression trend line
+      var x0 = 0, x1 = xMax * 0.95, y0 = sel.my + sel.slope * (x0 - sel.mx), y1 = sel.my + sel.slope * (x1 - sel.mx);
+      sv('line', { x1: xf(x0), y1: ax.y(clampV(y0, ax.mn, ax.mx)), x2: xf(x1), y2: ax.y(clampV(y1, ax.mn, ax.mx)), stroke: 'var(--acc)', 'stroke-width': 2, opacity: .75 }, c.svg);
+      function clampV(v, a, b) { return Math.max(a, Math.min(b, v)); }
+      // X-axis ticks
+      [0, Math.round(xMax * 0.33), Math.round(xMax * 0.66), Math.round(xMax)].forEach(function (xv) {
+        var tx = sv('text', { x: xf(xv), y: c.t + c.ih + 16, 'text-anchor': 'middle', class: 'xl' }, c.svg); tx.textContent = xv + '%';
+      });
+      pts.forEach(function (p) {
+        var col = p.tn === 'T1' ? 'var(--t1)' : 'var(--t2)';
+        var saldoKg = mMeta != null && p.S ? (p.y - mMeta) * p.S / 100 : null;
+        var tip = '<div class="tt">' + E.dmy(p.iso) + ' · ' + p.tn + '</div><div class="tr"><span>' + esc(sel.it.title) + '</span><b>' + E.fp(p.x) + '</b></div><div class="tr"><span>' + esc(RDO_META[ind].n) + '</span><b>' + fdec(p.y, 3) + (ind === 'U' ? ' kg' : '%') + '</b></div>' + (saldoKg != null ? '<div class="tr"><span>Saldo vs meta</span><b>' + (saldoKg >= 0 ? '+' : '−') + E.fint(Math.abs(saldoKg)) + ' kg</b></div>' : '');
+        var g = sv('g', { 'data-tip': tip }, c.svg);
+        sv('circle', { cx: xf(p.x), cy: ax.y(p.y), r: 4.2, fill: col, stroke: 'var(--bg0)', 'stroke-width': 1.4, opacity: .88 }, g);
+      });
+    });
+
+    post(function () {
+      var host = $('#rx-sim'); if (!sel || !host) return;
+      var L = data.last, lt = +L.turno - 1;
+      var vCur = DS.raw(sel.it.id, L.d, L.d, [lt]);
+      if (vCur == null) vCur = sel.mx;
+      var curVal = S.rxVal != null ? +S.rxVal : vCur;
+      var p90 = INTEL.quantile(sel.pts.map(function (p) { return p.x; }), 0.9);
+      var simLinks = data.links.filter(function (l) { return l.it.id === sel.it.id && l.ind !== 'U' && l.ps < 0.05 && l.sameSign; }).sort(function (a, b) { return Math.abs(b.rs) - Math.abs(a.rs); });
+      var h = '<div class="rx-ctrl"><button class="btn" id="rx-p-cur">Último (' + E.fp(vCur) + ')</button><button class="btn" id="rx-p-10">Corte 10%</button><button class="btn" id="rx-p-p5">+5 p.p.</button><button class="btn" id="rx-p-90">Crítico p90 (' + E.fp(p90) + ')</button></div>' +
+        '<div class="rx-slider"><span>Desvio simulado: <b class="num">' + E.fp(curVal) + '</b> <small class="muted">(média ' + E.fp(sel.mx) + ')</small></span><input type="range" id="rx-rng" min="0" max="' + Math.max(35, Math.ceil(p90 * 1.4)) + '" step="0.5" value="' + curVal.toFixed(1) + '"></div>';
+      if (!simLinks.length) {
+        h += '<p class="mut" style="font-size:.76rem">Este desvio não possui associações consistentes (p &lt; 0,05 e LOO estável) com rendimentos do RDO no recorte atual. Escolha um item com selo <b>Achado forte</b> ou <b>Pista</b> no ranking ao lado.</p>';
+      } else {
+        h += simLinks.slice(0, 8).map(function (l) {
+          var rm = RDO_META[l.ind];
+          var dPP = l.slope * (curVal - l.mx);
+          var sePP = l.seSlope * Math.abs(curVal - l.mx);
+          var dKg = dPP * data.avgS / 100;
+          var dCx = rm.cx > 0 ? dKg / rm.cx : null;
+          var st = dPP > 0.02 ? 'better' : dPP < -0.02 ? 'worse' : 'flat';
+          return '<div class="rx-sim-row"><div><b>' + esc(rm.n) + '</b><div class="muted" style="font-size:.66rem">r=' + (l.rs >= 0 ? '+' : '−') + fdec(Math.abs(l.rs), 2) + ' · n=' + l.n + ' · ' + (l.tier === 'forte' ? 'achado forte' : 'pista') + '</div></div>' +
+            '<b class="num" style="text-align:right;color:var(--' + (st === 'better' ? 'good' : st === 'worse' ? 'bad' : 'tx2') + ')">' + (dPP >= 0 ? '+' : '−') + fdec(Math.abs(dPP), 3) + ' p.p.<div class="muted" style="font-weight:400;font-size:.64rem">±' + fdec(sePP, 3) + '</div></b>' +
+            '<span class="num" style="text-align:right">' + (dKg >= 0 ? '+' : '−') + E.fint(Math.abs(dKg)) + ' kg</span>' +
+            '<span class="rx-cx muted num" style="text-align:right">' + (dCx == null ? '—' : (dCx >= 0 ? '+' : '−') + E.fint(Math.abs(dCx)) + ' cx') + '</span></div>';
+        }).join('');
+      }
+      h += '<p class="mut" style="font-size:.68rem;margin-top:.5rem">Estimativa associativa por regressão regularizada sobre ' + data.nPairs + ' turnos em comum (peso vivo médio ~' + E.fint(data.avgS) + ' kg). <b>Correlação não prova causa</b>: fatores comuns (como peso médio U ou lote da granja) podem influenciar os dois indicadores.</p>';
+      host.innerHTML = h;
+      $('#rx-rng').oninput = function () { S.rxVal = +this.value; render(false); };
+      $('#rx-p-cur').onclick = function () { S.rxVal = vCur; render(false); };
+      $('#rx-p-10').onclick = function () { S.rxVal = 10; render(false); };
+      $('#rx-p-p5').onclick = function () { S.rxVal = sel.mx + 5; render(false); };
+      $('#rx-p-90').onclick = function () { S.rxVal = p90; render(false); };
+    });
+  }
+
   /* ======================= DE ONDE VEIO A DIFERENÇA (cascata da taxa geral) ======================= */
   function waterfall(host, cx, o) {
     o = o || {};
@@ -16514,7 +16980,7 @@ if (typeof module !== 'undefined') module.exports = RECO;
   function renderTop() {
     var v = VIEWS.filter(function (x) { return x.id === S.view; })[0], iso = DS.dates[S.d], ts = TS();
     var pd = DS.prevDay(S.d, ts, S.cmp !== 'prev');
-    var sub = { panorama: 'Visão do turno: quantos itens passaram de 10%, o que piorou e o que melhorou', resumo: 'Os cartões do resumo diário, no mesmo critério do seu assistente', raiox: 'Uma anomalia por dentro: dia, semana, mês, turnos, produto e linha', turno: 'Primeiro × segundo turno, item a item', semana: 'Compare quaisquer duas semanas', mes: 'Compare quaisquer dois meses e veja a evolução desde o início', calendario: 'Todos os dias desde o início, em cores', linha: 'Cada dia da semana lado a lado: o que entrou, o que saiu e o que persiste', lab: 'Correlação profunda entre processos: o que vem antes, o que anda junto, o que fazer', sentinela: 'Controle estatístico que pega movimentos pequenos antes de virarem desvio', prior: 'Onde agir primeiro: frequência acima de 10%, sequência, volume e tendência, com o porquê de cada item', proj: 'Chance de cada item passar de 10% no próximo turno, testada no passado, e a máquina do tempo', viradas: 'As datas em que o nível de cada item mudou de verdade: antes, depois e a força da evidência', persist: 'Quanto tempo um desvio dura, quem está acima há mais tempo e se a resposta está ficando mais rápida', familias: 'Itens que sobem e descem juntos: cada família costuma ter a mesma causa', corrida: 'O histórico em movimento: quem liderou os desvios em cada período' }[S.view];
+    var sub = { panorama: 'Visão do turno: quantos itens passaram de 10%, o que piorou e o que melhorou', resumo: 'Os cartões do resumo diário, no mesmo critério do seu assistente', raiox: 'Uma anomalia por dentro: dia, semana, mês, turnos, produto e linha', turno: 'Primeiro × segundo turno, item a item', semana: 'Compare quaisquer duas semanas', mes: 'Compare quaisquer dois meses e veja a evolução desde o início', calendario: 'Todos os dias desde o início, em cores', linha: 'Cada dia da semana lado a lado: o que entrou, o que saiu e o que persiste', lab: 'Correlação profunda entre processos: o que vem antes, o que anda junto, o que fazer', sentinela: 'Controle estatístico que pega movimentos pequenos antes de virarem desvio', prior: 'Onde agir primeiro: frequência acima de 10%, sequência, volume e tendência, com o porquê de cada item', proj: 'Chance de cada item passar de 10% no próximo turno, testada no passado, e a máquina do tempo', viradas: 'As datas em que o nível de cada item mudou de verdade: antes, depois e a força da evidência', persist: 'Quanto tempo um desvio dura, quem está acima há mais tempo e se a resposta está ficando mais rápida', familias: 'Itens que sobem e descem juntos: cada família costuma ter a mesma causa', corrida: 'O histórico em movimento: quem liderou os desvios em cada período', rdox: 'Cruzamento ao vivo entre os desvios do Radar e os resultados finais do RDO (sem misturar as bases)' }[S.view];
     $('#ttl').innerHTML = '<h1>' + v.name + ' ' + infoBtn('v-' + S.view) + '</h1><p class="ttl-sub">' + sub + (pd >= 0 && ['panorama', 'resumo', 'raiox', 'linha'].indexOf(S.view) >= 0 ? ' · comparando com ' + E.dlabelLong(DS.dates[pd]) : '') + (['panorama', 'resumo', 'raiox', 'linha'].indexOf(S.view) >= 0 ? warnChip(S.d, ts) : '') + '</p><div class="crumbs" id="crumbs"></div>';
     $('#dlbl').innerHTML = LAY.narrow ? '<span>' + esc(v.short || v.name) + '</span><b class="num">' + E.dlabel(DS.dates[S.d]) + '<small>/' + iso.slice(5, 7) + '</small></b>' : '<span>' + E.DOWF[E.dow(iso)] + '</span><b class="num">' + E.dmy(iso) + '</b>';
     $('#dprev').disabled = S.d <= 0; $('#dnext').disabled = S.d >= DS.nD - 1;
@@ -16528,7 +16994,7 @@ if (typeof module !== 'undefined') module.exports = RECO;
     renderLive();
   }
   /* ======================= RENDER ======================= */
-  var renderers = { prior: vPrior, panorama: vPanorama, resumo: vResumo, linha: vLinha, raiox: vRaiox, turno: vTurno, semana: vSemana, mes: vMes, calendario: vCal, lab: vLab, sentinela: vSent, proj: vProj, viradas: vViradas, persist: vPersist, familias: vFamilias, corrida: vCorrida };
+  var renderers = { prior: vPrior, panorama: vPanorama, resumo: vResumo, linha: vLinha, raiox: vRaiox, turno: vTurno, semana: vSemana, mes: vMes, calendario: vCal, lab: vLab, sentinela: vSent, proj: vProj, viradas: vViradas, persist: vPersist, familias: vFamilias, corrida: vCorrida, rdox: vRdox };
   function render(anim) {
     ANIM = anim !== false;
     hideTip(); infoHide(true);
